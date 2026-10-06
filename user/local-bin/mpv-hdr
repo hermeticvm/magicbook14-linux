@@ -1,0 +1,30 @@
+#!/bin/bash
+# mpv-hdr — fullscreen HDR playback on the HONOR Art 14 eDP panel.
+#
+# Flips the internal panel from its sRGB desktop to BT.2020 + PQ (HDR10) for
+# the duration of mpv, restores sRGB when mpv exits (also on crash/interrupt).
+#
+# Why not render:cm_auto_hdr? That path keys on apps that TAG their surfaces
+# (gamescope/ENABLE_HDR_WSI do; mpv's target-colorspace-hint does not in
+# current versions). This wrapper uses the explicit, verified flip instead.
+#
+# Panel: 1600 nits peak (10% window), 0.012 nit black, BT.2020 + ST.2084
+# declared in a DisplayID EDID block (hence the supports_* overrides — see
+# ~/.config/hypr/monitors.lua).
+set -u
+RTDIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+SIG=$(ls "$RTDIR/hypr" 2>/dev/null | head -1)
+[ -n "$SIG" ] || { echo "mpv-hdr: no hyprland socket in $RTDIR/hypr" >&2; exit 1; }
+HC() { XDG_RUNTIME_DIR="$RTDIR" hyprctl -i "$SIG" "$@"; }
+
+HDR_RULE='hl.monitor({output="eDP-1", mode="3120x2080@60", position="auto", scale=2, bitdepth=10, supports_wide_color=1, supports_hdr=1, cm="hdr", sdrbrightness=1.2, sdrsaturation=0.98, min_luminance=0.012, max_luminance=1600})'
+SDR_RULE='hl.monitor({output="eDP-1", mode="3120x2080@60", position="auto", scale=2, bitdepth=10, supports_wide_color=1, supports_hdr=1, cm="srgb", sdrbrightness=1.2, sdrsaturation=0.98, min_luminance=0.012, max_luminance=1600})'
+
+restore(){ HC eval "$SDR_RULE" >/dev/null 2>&1; }
+trap restore EXIT INT TERM
+
+HC eval "$HDR_RULE" >/dev/null 2>&1
+# mpv renders into PQ/BT.2020 while the panel is in PQ mode — passthrough,
+# no double tonemapping. No `exec`: the trap must survive to restore sRGB.
+mpv --fullscreen --vo=gpu --target-trc=pq --target-prim=bt.2020 "$@"
+restore

@@ -28,6 +28,7 @@ fully understood daily driver.
 | Webcam hot-plug notifications | ✅ working | udev rule in `system/udev/` |
 | Power/charging behavior | ✅ measured + tuned | [power doc](docs/power.md) |
 | Display 10-bit over DSC | ✅ 10 bpc via runtime force, no kernel patch | [display doc](docs/display.md) |
+| HDR10 per-content (OLED 1600 nits) | ✅ fullscreen-only: `mpv-hdr` + auto-flip for tagged apps | [display doc](docs/display.md) |
 | Session restore, gestures, rounded-corner UI | ✅ | `user/hypr/`, `user/omarchy/` |
 
 ## Layout
@@ -81,6 +82,13 @@ Things that were tried and did not work, kept because they cost real time:
    Awinic SKTune DSP software. Reproduced on Linux with EasyEffects instead.
 4. **Battery EC preset pairs from the ZQC-P** — our EC maps charge state to
    different offsets; the limit reads back but the EC ignores it.
+
+5. **Hyprland auto-HDR with mpv** — `render:cm_auto_hdr` keys on apps that
+   tag their surfaces via the Wayland CM protocol. mpv's
+   `--target-colorspace-hint` doesn't tag (verified: sRGB window during PQ
+   playback), so the auto-flip never triggers for it. gamescope-tagged games
+   should still auto-flip; mpv gets the `mpv-hdr` wrapper, which flips
+   explicitly and restores on exit.
 
 ## License
 

@@ -23,6 +23,16 @@ require("hypr.looknfeel")
 require("hypr.autostart")
 require("hypr.windows")
 
+-- Fullscreen HDR: when a fullscreen app presents HDR content (mpv with
+-- --target-colorspace-hint, games via gamescope), flip the eDP panel from
+-- its sRGB desktop to BT.2020+PQ for that surface, back again on close.
+-- See hypr/monitors.lua for the panel's HDR capability overrides.
+hl.config({
+  render = {
+    cm_auto_hdr = 1, -- 1 = "hdr" preset: BT.2020 primaries + PQ transfer
+  },
+})
+
 -- Toggle config flags dynamically.
 require("default.hypr.toggles")
 

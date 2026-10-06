@@ -12,7 +12,29 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = omarchy
 -- bitdepth 10: with DSC forced (honor-edp-dsc.service) this drives the panel
 -- at true 10 bpc instead of 6 bpc + dithering. Without DSC the link can't
 -- carry it and the driver silently falls back to 18 bpp, as before.
-hl.monitor({ output = "eDP-1", mode = "3120x2080@60", position = "auto", scale = omarchy_monitor_scale, bitdepth = 10 })
+-- cm = srgb: desktop stays plain sRGB (no skew for apps whose renderers
+-- don't expect tonemapping — Brave/Skia etc). HDR engages per fullscreen
+-- app via render:cm_auto_hdr (set in hyprland.lua): the panel flips to
+-- BT.2020 + PQ just for that surface, back to sRGB when it closes.
+-- supports_wide_color/supports_hdr overrides: the panel declares BT.2020 +
+-- ST.2084 (1600 nits peak @10% window, 0.012 nit black) in a DisplayID EDID
+-- block that Hyprland's auto-detection doesn't parse — without the overrides
+-- every HDR path silently degrades to sRGB. min/max_luminance carry the
+-- panel's real mastering limits into the HDR metadata blob when it flips.
+hl.monitor({
+  output = "eDP-1",
+  mode = "3120x2080@60",
+  position = "auto",
+  scale = omarchy_monitor_scale,
+  bitdepth = 10,
+  supports_wide_color = 1,
+  supports_hdr = 1,
+  cm = "srgb",
+  sdrbrightness = 1.2,
+  sdrsaturation = 0.98,
+  min_luminance = 0.012,
+  max_luminance = 1600,
+})
 
 -- Configure a specific monitor.
 -- hl.monitor({ output = "DP-2", mode = "2560x1440@144", position = "0x0", scale = 1 })

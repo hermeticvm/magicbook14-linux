@@ -71,6 +71,61 @@ and one auto-revert timer stomped one property write before the install
 ran. The measured ladder: 6 bpc+dither → 8 bpc DSC (max bpc still 8) →
 **10 bpc DSC** (property 10 + force + one dpms cycle).
 
+## HDR: real hardware, per-content engage (HDR10 OLED)
+
+The panel is a genuine HDR display, not "HDR400" laptop marketing. EDID
+(`edid-decode`, full 256 bytes incl. extension):
+
+| Declaration | Value |
+|---|---|
+| Color space / transfer | BT.2020 + SMPTE ST.2084 (PQ) |
+| Peak luminance (10% window) | 1600 nits |
+| Full-frame max | 700 nits |
+| Black | 0.012 nits |
+| Desired content maxFALL | ~703 nits |
+
+### The DisplayID detection gap
+
+All of that is declared in a **DisplayID extension block**, not classic
+CTA-861. Hyprland's auto-detection (aquamarine → libdisplay-info) doesn't
+parse that form, so `supportsBT2020` / HDR capability read as absent — and
+`cm = "hdr"` **silently degrades to sRGB** (`Monitor.cpp`: `supportsHDR() ?
+cm : srgb`). The monitor-rule overrides exist for exactly this:
+`supports_wide_color = 1, supports_hdr = 1` plus `min_luminance` /
+`max_luminance` carrying the panel's real mastering limits into the
+SMPTE 2086 metadata blob. With those, the flip is verified:
+`Colorspace` property 0 → 9 (BT2020_RGB) and a committed Type-1 metadata
+blob over the DSC link.
+
+### Mode choice: per-content, not full-time
+
+Full-time HDR (`cm = "hdr"` desktop) works but tonemaps every SDR app
+through PQ — renderers that don't expect it (Brave/Skia) shift color.
+Chosen instead: **sRGB desktop, HDR only while fullscreen HDR content
+plays**:
+
+- `cm = "srgb"` in the eDP-1 rule — desktop colors exactly as before.
+- `render:cm_auto_hdr = 1` (`user/hypr/hyprland.lua`) — auto-flips the
+  panel for fullscreen apps that *tag* their surfaces HDR (gamescope with
+  `--hdr-enabled`, `ENABLE_HDR_WSI`/`DXVK_HDR` wine paths). Verified path
+  for those; games.
+- **`mpv-hdr`** (`user/local-bin/`) — for mpv, whose
+  `--target-colorspace-hint` does *not* tag its surface (measured: Hyprland
+  0.56.2 sees an sRGB window during PQ playback), so auto-HDR never
+  triggers. The wrapper flips the panel to PQ for the duration of playback
+  and restores sRGB on exit (trap, crash-safe; verified 0 → 9 → 0 across
+  the connector property). `mpv-hdr file.mkv` is the whole interface.
+
+Browser HDR video (YouTube) depends on Chromium's Wayland color-management
+implementation tagging surfaces — untested here; use `mpv-hdr` with
+downloads in the meantime.
+
+### What carries HDR on this panel
+
+Everything from the DSC section is the HDR prerequisite: HDR10 needs
+10 bpc, and the link only carries it compressed. `hdr_output_metadata`
++ BT.2020 colorspace + DSC all ride the same modeset.
+
 ## xe driver note
 
 `8086:7d55` is present in `xe`'s alias table and `xe` loads here, but
