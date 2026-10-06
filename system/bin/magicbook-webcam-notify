@@ -1,0 +1,31 @@
+#!/bin/bash
+# Notify the TARGET_USER's session when the HONOR MagicBook Art 14 detachable
+# magnetic webcam (FHD Camera, USB 3277:00a8) is attached or detached.
+# Called from /etc/udev/rules.d/95-magicbook-webcam.rules as root.
+
+EVENT="${1:-add}"
+# Who to notify (the desktop user). Set here or pass TARGET_USER from the udev rule.
+TARGET_USER="${TARGET_USER:-SET_YOUR_USERNAME}"
+TARGET_UID="$(id -u "$TARGET_USER" 2>/dev/null)" || exit 0
+
+# Skip when the graphical session isn't up: the camera enumerates at boot
+# before the shell starts, and that enumeration is not news.
+pgrep -u "$TARGET_USER" quickshell >/dev/null 2>&1 || exit 0
+
+notify_user() {
+  runuser -u "$TARGET_USER" -- env \
+    XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+    DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+    "$@"
+}
+
+case "$EVENT" in
+  add)
+    notify_user omarchy-notification-send --app-name "Webcam" -u normal -g 󰄀 \
+      "Webcam attached" "Magnetic camera connected — ready at /dev/video0"
+    ;;
+  remove)
+    notify_user omarchy-notification-send --app-name "Webcam" -u normal -g 󰄀 \
+      "Webcam detached" "Magnetic camera stowed or removed"
+    ;;
+esac

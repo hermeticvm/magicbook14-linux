@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "idle": {
+    "screensaver": 600,
+    "lock": 660
+  },
+  "bar": {
+    "position": "top",
+    "transparent": false,
+    "layout": {
+      "left": [
+        {
+          "id": "omarchy.spacer",
+          "size": 16
+        },
+        {
+          "id": "omarchy.menu"
+        },
+        {
+          "id": "omarchy.workspaces"
+        }
+      ],
+      "center": [
+        {
+          "id": "omarchy.keyboard-layout"
+        },
+        {
+          "id": "omarchy.system-update"
+        }
+      ],
+      "right": [
+        {
+          "id": "dh.tray"
+        },
+        {
+          "id": "omarchy.agents"
+        },
+        {
+          "id": "omarchy.indicators"
+        },
+        {
+          "id": "omarchy.bluetooth"
+        },
+        {
+          "id": "omarchy.network"
+        },
+        {
+          "id": "omarchy.audio"
+        },
+        {
+          "id": "dh.power"
+        },
+        {
+          "id": "omarchy.monitor"
+        },
+        {
+          "id": "omarchy.weather"
+        },
+        {
+          "id": "omarchy.clock",
+          "format": "dddd HH:mm",
+          "formatAlt": "d MMMM 'W'ww yyyy",
+          "verticalFormat": "HH\n—\nmm"
+        },
+        {
+          "id": "omarchy.spacer",
+          "size": 16
+        }
+      ]
+    }
+  },
+  "plugins": [
+    {
+      "id": "dh.notifications"
+    }
+  ],
+  "disabledPlugins": [
+    "omarchy.notifications"
+  ],
+  "cloneSourceRestores": [
+    "dh.notifications"
+  ]
+}

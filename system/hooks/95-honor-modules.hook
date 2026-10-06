@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = linux-omarchy
+Target = linux-omarchy-headers
+
+[Action]
+Description = Rebuilding HONOR MagicBook kernel modules (hotkeys, audio)...
+When = PostTransaction
+Exec = /usr/local/bin/honor-modules-deferred.sh
+NeedsTargets

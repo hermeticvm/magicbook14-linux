@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=EasyEffects (audio service)
+Comment=Art 14 speaker profile — runs headless, no UI
+Exec=easyeffects --service-mode
+Icon=com.github.wwmm.easyeffects-symbolic
+Terminal=false
+Categories=Audio;AudioVideo;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

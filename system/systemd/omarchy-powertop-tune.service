@@ -1,0 +1,11 @@
+[Unit]
+Description=Powertop safe tunables (runtime PM, NMI watchdog, WiFi PS)
+After=multi-user.target network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/omarchy-powertop-tune.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

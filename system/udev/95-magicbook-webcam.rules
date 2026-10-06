@@ -1,0 +1,12 @@
+# HONOR MagicBook Art 14 — detachable magnetic webcam (FHD Camera, 3277:00a8,
+# always on usb port 3-4). Notify the user session on attach/detach.
+#
+# ENV{DEVTYPE}=="usb_device" restricts the add rule to the single device-level
+# event: without it the rule also matches every USB interface (3-4:1.x) beneath
+# the camera, because ATTRS{} lookups climb to the parent — one plug then fires
+# once per interface.
+# Remove events carry no device attributes, so the remove rule matches the
+# fixed bus port instead of VID:PID; KERNEL=="3-4" is exact (interfaces are
+# "3-4:1.0" etc., which do not match).
+ACTION=="add",    SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTRS{idVendor}=="3277", ATTRS{idProduct}=="00a8", RUN+="/usr/local/bin/magicbook-webcam-notify add"
+ACTION=="remove", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", KERNEL=="3-4", RUN+="/usr/local/bin/magicbook-webcam-notify remove"

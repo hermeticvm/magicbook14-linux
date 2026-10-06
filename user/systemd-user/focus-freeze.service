@@ -1,0 +1,12 @@
+[Unit]
+Description=Freeze unfocused apps, thaw on window focus (Hyprland)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/focus-freeze.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

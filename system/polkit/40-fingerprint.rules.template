@@ -1,0 +1,15 @@
+// TEMPLATE — adapt to your user, then install as
+// /etc/polkit-1/rules.d/40-fingerprint.rules
+//
+// Purpose: fingerprint authentication for polkit-authorized actions
+// (systemd, packagekit, …) works via PAM (pam_fprintd in /etc/pam.d/polkit-1).
+// This rule scopes which local user/group may authenticate that way.
+// See docs/fingerprint.md for the full wiring.
+
+polkit.addRule(function (action, subject) {
+    if (subject.local && subject.active &&
+        subject.user === "SET_YOUR_USERNAME" &&          // or drop this line
+        subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+    }
+});
