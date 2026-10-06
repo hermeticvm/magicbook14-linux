@@ -1,0 +1,13 @@
+#!/bin/bash
+# Force DSC on the internal eDP panel. 10 bpc comes from the Hyprland
+# monitor rule (bitdepth=10 -> connector max bpc property); this flag makes
+# the driver compress instead of dropping to 6 bpc.
+# Stock kernel, runtime debugfs only. Disable: systemctl mask honor-edp-dsc
+DEV=""
+for d in /sys/kernel/debug/dri/*/eDP-1; do
+  [ -f "$d/i915_dsc_fec_support" ] && DEV="$d" && break
+done
+[ -n "$DEV" ] || { echo "honor-edp-dsc: no eDP-1 debugfs (kernel too old? renamed?) — leaving stock"; exit 1; }
+echo 10 > "$DEV/i915_dsc_bpc"
+echo 1  > "$DEV/i915_dsc_fec_support"
+echo "honor-edp-dsc: DSC forced on $DEV"

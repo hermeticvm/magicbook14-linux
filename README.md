@@ -27,7 +27,7 @@ fully understood daily driver.
 | Fn hotkeys incl. keyboard backlight | ✅ working | [hotkeys doc](docs/hotkeys.md) |
 | Webcam hot-plug notifications | ✅ working | udev rule in `system/udev/` |
 | Power/charging behavior | ✅ measured + tuned | [power doc](docs/power.md) |
-| 10-bit display at 8+ bpc | ⚠️ 18 bpp dithered; DSC attempt black-screens — negative result documented | [display doc](docs/display.md) |
+| Display 10-bit over DSC | ✅ 10 bpc via runtime force, no kernel patch | [display doc](docs/display.md) |
 | Session restore, gestures, rounded-corner UI | ✅ | `user/hypr/`, `user/omarchy/` |
 
 ## Layout
@@ -67,9 +67,13 @@ the pacman hook on every `linux-omarchy` update).
 
 Things that were tried and did not work, kept because they cost real time:
 
-1. **eDP DSC patch on i915/Meteor Lake** — panel is DSC-capable and stuck at
-   18 bpp, but the prefer-DSC patch black-screens at early KMS on this
-   board. Works on the ZQC-P's Panther Lake/`xe`. Documented upstream.
+1. **eDP DSC patch on i915/Meteor Lake** — the prefer-DSC patch black-screens
+   at early KMS on this board (works on the ZQC-P's Panther Lake/`xe`),
+   documented upstream. The goal it chased — 10 bpc on a link that can't
+   carry it uncompressed — was instead achieved with zero kernel changes:
+   `bitdepth=10` monitor rule + a boot unit writing i915's runtime debugfs
+   force flags. The *patch* stays on the do-not-apply list; see the
+   [display doc](docs/display.md) for the working stack.
 2. **cgroup-freezer app freezing on blur** — worked perfectly, but Electron's
    hang watchdog shows "unresponsive" dialogs; reverted.
 3. **The subwoofer** — does not exist. Six drivers, three channels, all pairs

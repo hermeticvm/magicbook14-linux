@@ -1,0 +1,13 @@
+[Unit]
+Description=Force DSC on internal eDP (10 bpc OLED via compression, stock i915)
+# Written by magicbook14-linux bring-up. If a session ever boots to a black
+# internal panel: switch to a TTY, run: systemctl mask honor-edp-dsc; reboot.
+Before=graphical.target
+After=systemd-remount-fs.service sys-kernel-debug.mount
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/honor-edp-dsc-force
+
+[Install]
+WantedBy=graphical.target

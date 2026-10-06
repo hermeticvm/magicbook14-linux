@@ -14,6 +14,10 @@ All numbers from a USB-C power-meter unless noted; they're reproducible with
 | **Suspended, charging** | **46 W** ← odd one |
 | Suspended, battery | (parked: not yet re-measured) |
 
+NOTE: the table above was measured before DSC was enabled (display doc);
+the DSC engine's idle cost at 60 Hz is not yet re-measured — expect a
+small addition, re-run the idle ladder when convenient.
+
 The 46 W suspended-while-charging is the EC topping up in bursts rather than
 trickle; harmless but worth knowing when reading the meter.
 
