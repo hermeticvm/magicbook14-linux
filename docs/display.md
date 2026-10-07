@@ -162,6 +162,28 @@ over USB-C are **not achievable on this board under Linux** — same wall as
 the battery-limit offsets: EC-owned, dialect-locked. Document upstream if
 you own both boards. The built-in HDMI port remains for plain displays.
 
+### Why the monitor still charges the laptop (documented, not bizarre)
+
+The 6K display (Kuycon G32P class) delivers **up to 100 W upstream PD**
+through its USB-C input — a documented feature. Why power works while
+display doesn't: PD is a CC-line message protocol with independent halves.
+Power contracts (source advertises, sink requests) run autonomously on this
+EC — every PD charger proves it; the monitor's PSU is just another source
+(`ADP1 online=1` while attached, battery full). USB2 pins are always-on;
+USB3 trains itself in the PHY (10 Gbps SSD verified). Alt-mode entry
+(`Enter Mode` / USB4 Enter) is a **host-issued** PD command — the exact
+half HONOR's EC doesn't expose to Linux. Monitor on this laptop = charger,
+USB2 hub, USB3-capable port; DP-alt/USB4 dead. Fully consistent.
+
+### HDMI escape hatch (future)
+
+The display also takes HDMI 2.1 / DP inputs (ships USB-C, DP, HDMI cables).
+MTL has native HDMI 2.1 silicon, but i915 FRL is still landing upstream
+(Intel's 44-patch series); on 7.2.5 only detection/PCON symbols exist —
+no native FRL training. So the laptop's HDMI today is TMDS (≈HDMI 2.0):
+4K@60, no DSC, no 6K. Revisit when native FRL lands: 6K@60 over
+HDMI FRL+DSC would then be on the table.
+
 ### Chassis EMI note (keyboard)
 
 While the 6K was connected, the internal PS/2 keyboard (i8042/atkbd — not
