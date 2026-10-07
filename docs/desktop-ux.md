@@ -15,6 +15,29 @@ Cloned from Omarchy's stock plugin, then:
 - `shell.json` keeps the plugin registered with stock plugins disabled
   (so omarchy updates don't double-render notifications).
 
+## Battery widget (`user/omarchy/plugins/dh.power`)
+
+Stock `omarchy.power` panel, cloned, then:
+
+- "Time left" is a **10-min rolling average** of the discharge draw, not
+  upower's instant `time-to-empty`. Real load swings 6–14 W on this
+  machine, which used to bounce the estimate between ~3 h and ~8 h;
+  only sustained load moves it now. The "Discharging" watts stay live.
+- A 30 s background sampler keeps the average warm while the panel is
+  closed; the open-panel refresh stays stock's 5 s. Sampler overhead is
+  ~180 ms of CPU per 30 s — a few mW, not worth a second thought.
+- "Screen on": accumulated screen-on time of the current discharge
+  session, reset by charging. Screen counts as off for the omarchy
+  screensaver window, a locked session, or all-monitors-DPMS-off;
+  gaps >120 s (suspend) never count.
+- "LAST 8H ON BATTERY": two graphs on one time axis — mean W and
+  screen-on minutes per 5-min bucket, last 8 h of the discharge session.
+- Histories live in `~/.local/state/dh.power/`: `rate.tsv` (10 min of
+  draw, for the estimate) and `long.tsv` (48 h of
+  `ts · W · state · screen_on`, feeds session stats + graphs). Honest
+  limit: a charge that happens entirely while the shell is down can't
+  split a session — the next *sampled* charge resets it.
+
 ## Session restore (`user/hypr/windows.lua` + `autostart.lua`)
 
 True pixel-perfect window restore isn't a thing in a tiling WM (state is

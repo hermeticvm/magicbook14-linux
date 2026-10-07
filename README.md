@@ -30,6 +30,7 @@ fully understood daily driver.
 | Display 10-bit over DSC | ✅ 10 bpc via runtime force, no kernel patch | [display doc](docs/display.md) |
 | HDR10 per-content (OLED 1600 nits) | ✅ fullscreen-only: `mpv-hdr` + auto-flip for tagged apps | [display doc](docs/display.md) |
 | Session restore, gestures, rounded-corner UI | ✅ | `user/hypr/`, `user/omarchy/` |
+| Battery widget: rolling-average estimate + session graphs | ✅ `user/omarchy/plugins/dh.power` | [desktop-ux doc](docs/desktop-ux.md) |
 
 ## Layout
 
