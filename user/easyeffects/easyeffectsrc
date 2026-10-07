@@ -1,6 +1,3 @@
-[General]
-showTrayIcon=false
-
 [Presets]
 lastLoadedOutputPreset=art14-bass
 
@@ -16,4 +13,5 @@ usedPresets=art14-bass:2
 [Window]
 height=488
 noWindowAfterStarting=true
-width=761
+showTrayIcon=false
+width=376

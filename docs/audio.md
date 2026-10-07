@@ -73,7 +73,12 @@ The 492 MB HONOR "Audio" Windows package, unpacked:
    flags: `noWindowAfterStarting=true` in `[Window]` of `easyeffectsrc`.
    **Fixed upstream as [PR #5353](https://github.com/wwmm/easyeffects/pull/5353).**
    The tray icon is a *separate* key (`showTrayIcon`, default true) —
-   set `false` in `[General]` for fully invisible service mode.
+   set `false` in the same `[Window]` group for fully invisible service
+   mode. Verified at the dbus level: `RegisteredStatusNotifierItems`
+   empty after restart. (First attempt put it in `[General]` — kcfg
+   grouping matters; the group is `[Window]`, per `easyeffects_db.kcfg`.
+   EE also round-trips `easyeffectsrc` on preset loads, so hand-edits
+   can race the app's own save.)
 
    **Preset schema:** 8.2.9's loader requires a `blocklist` key in the
    preset; a preset without it throws `key 'blocklist' not found` and the
