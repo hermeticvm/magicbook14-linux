@@ -38,6 +38,22 @@ Stock `omarchy.power` panel, cloned, then:
   limit: a charge that happens entirely while the shell is down can't
   split a session — the next *sampled* charge resets it.
 
+## Display widget (`user/omarchy/plugins/dh.monitor`)
+
+Stock panel, cloned, then:
+
+- **REFRESH RATE pills** — SCALE-style toggle over the rates hyprctl
+  reports at the current resolution (60/120 Hz here): click, or h/l and
+  Enter; the live rate is filled.
+- Applying a choice persists into `~/.config/hypr/monitors.lua`
+  (`mode = "WxH@rate"`) and runs `hyprctl reload` — deliberately not a
+  runtime-only eval: that file carries `bitdepth = 10`, the DisplayID
+  cm/HDR overrides and scale, which a bare eval would silently drop
+  (same rule as `edp-refresh`). Displays absent from monitors.lua fall
+  back to runtime eval, session-only, like the scale pills.
+- Interplay with the udev policy: `edp-refresh` wins on AC/battery
+  events, the pill wins on click (and rewrites the file's default).
+
 ## Session restore (`user/hypr/windows.lua` + `autostart.lua`)
 
 True pixel-perfect window restore isn't a thing in a tiling WM (state is

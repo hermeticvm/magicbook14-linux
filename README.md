@@ -31,6 +31,7 @@ fully understood daily driver.
 | HDR10 per-content (OLED 1600 nits) | ✅ fullscreen-only: `mpv-hdr` + auto-flip for tagged apps | [display doc](docs/display.md) |
 | Session restore, gestures, rounded-corner UI | ✅ | `user/hypr/`, `user/omarchy/` |
 | Battery widget: rolling-average estimate + session graphs | ✅ `user/omarchy/plugins/dh.power` | [desktop-ux doc](docs/desktop-ux.md) |
+| Bar display widget: refresh-rate pills (60/120 Hz) | ✅ `user/omarchy/plugins/dh.monitor` | [desktop-ux doc](docs/desktop-ux.md) |
 
 ## Layout
 

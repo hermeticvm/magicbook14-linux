@@ -23,7 +23,7 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = omarchy
 -- panel's real mastering limits into the HDR metadata blob when it flips.
 hl.monitor({
   output = "eDP-1",
-  mode = "3120x2080@60",
+  mode = "3120x2080@120",
   position = "auto",
   scale = omarchy_monitor_scale,
   bitdepth = 10,
