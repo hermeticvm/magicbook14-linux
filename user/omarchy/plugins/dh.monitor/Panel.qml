@@ -83,7 +83,7 @@ Panel {
     if (brightnessAvailable) list.push("brightness")
     list.push("textsize")
     list.push("scale")
-    if (refreshRates.length > 1) list.push("rate")
+    // (rate is read-only; not a navigable section)
     if (displays.length > 1) list.push("monitors")
     return list
   }
@@ -92,14 +92,14 @@ Panel {
     if (section === "brightness") return 0  // only the slider sentinel at -1
     if (section === "textsize") return 0    // slider sentinel at -1, like brightness
     if (section === "scale") return scaleValues.length
-    if (section === "rate") return refreshRates.length
+    // (rate section removed — read-only display)
     if (section === "monitors") return displays.length
     return 0
   }
 
   function sectionIsSingleRow(section) {
     // brightness and text size are lone sliders; scale presets sit horizontally.
-    return section === "brightness" || section === "textsize" || section === "scale" || section === "rate"
+    return section === "brightness" || section === "textsize" || section === "scale"
   }
 
   function sectionFirstIndex(section) {
@@ -137,20 +137,15 @@ Panel {
     }
   }
 
-  // h/l: walks the horizontal preset rows (scale, refresh rate); everywhere
-  // else a no-op because adjustBrightness handles horizontal motion on the
-  // brightness slider.
+  // h/l: walks the horizontal preset rows (scale); everywhere else a no-op
+  // because adjustBrightness handles horizontal motion on the brightness
+  // slider.
   function moveCursorH(delta) {
     if (focusSection === "scale") {
       var next = selectedIndex + delta
       if (next < 0) next = 0
       if (next > scaleValues.length - 1) next = scaleValues.length - 1
       selectedIndex = next
-    } else if (focusSection === "rate") {
-      var nextRate = selectedIndex + delta
-      if (nextRate < 0) nextRate = 0
-      if (nextRate > refreshRates.length - 1) nextRate = refreshRates.length - 1
-      selectedIndex = nextRate
     }
   }
 
@@ -165,46 +160,11 @@ Panel {
       setScale(scaleValues[selectedIndex])
       return
     }
-    if (focusSection === "rate" && selectedIndex >= 0 && selectedIndex < refreshRates.length) {
-      setRefreshRate(refreshRates[selectedIndex])
-      return
-    }
     if (focusSection === "monitors" && selectedIndex >= 0 && selectedIndex < displays.length) {
       var d = displays[selectedIndex]
       if (d) toggleDisplay(d.name, d.enabled)
     }
     // brightness: no separate action; the slider value is the action.
-  }
-
-  // Switch the focused display's refresh rate. Persists into
-  // ~/.config/hypr/monitors.lua and reloads Hyprland, so the whole monitor
-  // config (bitdepth, cm overrides, scale) is re-applied exactly as written —
-  // a runtime-only eval would silently drop those. Displays not present in
-  // monitors.lua fall back to the runtime eval, like the scale pills do.
-  function setRefreshRate(rate) {
-    if (!rate || rate <= 0 || actionProc.running) return
-    var display = null
-    for (var i = 0; i < displays.length; i++) {
-      if (displays[i] && displays[i].focused) { display = displays[i]; break }
-    }
-    if (!display) return
-    var name = String(display.name)
-    // The name is interpolated into a shell string below; refuse anything a
-    // hostile output name could use to escape it (same guard as the
-    // omarchy-hyprland-monitor-scaling script).
-    if (!/^[A-Za-z0-9._-]+$/.test(name)) return
-    var res = display.width + "x" + display.height
-    var mode = res + "@" + rate
-    var scale = root.monitorScale !== "" ? root.monitorScale : "1"
-    var script =
-      'M="$HOME/.config/hypr/monitors.lua"; ' +
-      'if grep -q \'mode = "' + res + '@\' "$M" 2>/dev/null; then ' +
-      'sed -i -E \'s|mode = "' + res + '@[0-9.]+|mode = "' + mode + '|\' "$M" && hyprctl reload; ' +
-      'else ' +
-      'hyprctl eval "hl.monitor({ output = \'' + name + '\', mode = \'' + mode + '\', position = \'auto\', scale = ' + scale + ' })"; ' +
-      'fi'
-    actionProc.command = ["bash", "-c", script]
-    actionProc.running = true
   }
 
   function clampCursor() {
@@ -674,8 +634,9 @@ Panel {
                 anchors.verticalCenter: parent.verticalCenter
               }
 
-              // Name the monitor the toggle targets — it only applies to the
-              // focused one, same convention as SCALE.
+              // Name the monitor whose rate is shown. Read-only: the rate is
+              // owned by the power policy (battery 60 / AC 120, edp-refresh),
+              // so there is deliberately nothing to toggle here.
               Text {
                 id: rateMonitor
                 textFormat: Text.PlainText
@@ -691,25 +652,13 @@ Panel {
               }
             }
 
-            Grid {
-              id: rateRow
-              width: parent.width
-              columns: root.refreshRates.length
-              spacing: Style.spacing.xs
-
-              readonly property real cellWidth: root.refreshRates.length > 0
-                ? (width - spacing * (columns - 1)) / columns
-                : 0
-
-              Repeater {
-                model: root.refreshRates
-
-                RatePill {
-                  required property var modelData
-                  rateValue: modelData
-                  width: rateRow.cellWidth
-                }
-              }
+            Text {
+              textFormat: Text.PlainText
+              text: root.currentRefreshRate > 0 ? root.currentRefreshRate + "Hz" : "—"
+              color: root.bar.foreground
+              font.family: root.bar.fontFamily
+              font.pixelSize: Style.font.caption
+              font.bold: true
             }
           }
 
@@ -987,30 +936,6 @@ Panel {
       root.cursorActive = true
       root.focusSection = "scale"
       root.selectedIndex = pill.scaleIndex
-    }
-  }
-
-  component RatePill: Button {
-    id: ratePill
-    required property var rateValue
-
-    text: rateValue + "Hz"
-    fontSize: Style.font.caption
-    foreground: root.bar.foreground
-    fontFamily: root.bar.fontFamily
-    horizontalPadding: Style.spacing.sm
-    verticalPadding: Style.spacing.controlPaddingY
-    bordered: true
-
-    active: root.currentRefreshRate === rateValue
-    hasCursor: root.cursorActive && root.focusSection === "rate" && root.selectedIndex === root.refreshRates.indexOf(rateValue)
-
-    onClicked: root.setRefreshRate(rateValue)
-    onHovered: function(isHovered) {
-      if (!isHovered || root.reflowingText) return
-      root.cursorActive = true
-      root.focusSection = "rate"
-      root.selectedIndex = root.refreshRates.indexOf(rateValue)
     }
   }
 
