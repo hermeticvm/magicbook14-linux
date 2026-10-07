@@ -1,0 +1,17 @@
+[Unit]
+Description=Rebuild EasyEffects chain after resume (suspend kills plugin nodes)
+# Mirrors omarchy-sleep-lock.service: a long-running PrepareForSleep monitor,
+# NOT a suspend.target one-shot (user suspend.target completes before sleep
+# and never fires on resume — measured).
+PartOf=graphical-session.target
+After=dbus.socket
+Requires=dbus.socket
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/easyeffects-resume-monitor
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

@@ -64,16 +64,34 @@ The 492 MB HONOR "Audio" Windows package, unpacked:
    `HiFi__Speaker__sink`/`Speaker` route; app runs headless via
    `--service-mode` from `user/autostart/`.
 
-   **8.2.9 flag regression (found live):** `--service-mode` sets the
-   service-mode config but never emits the hide-window signal, so the UI
-   shows at every boot; the *deprecated* `--gapplication-service` does
-   both (src/command_line_parser.cpp:97–104). Fix without touching
-   deprecated flags: `noWindowAfterStarting=true` in the `[Window]` group
-   of `~/.config/easyeffects/db/easyeffectsrc` — "never show our window
-   after initialization **when running in service mode**" (label of the
-   kcfg key). Plain GUI launches are unaffected. Verified: service
-   restart → zero EE windows, chain intact, preset reload via
-   `easyeffects -l art14-bass`.
+   Three live findings beyond the profile itself:
+
+   **8.2.9 flag regression:** `--service-mode` sets the service-mode
+   config but never emits the hide-window signal, so the UI shows at
+   every boot; the *deprecated* `--gapplication-service` does both
+   (src/command_line_parser.cpp:97–104). Fix without touching deprecated
+   flags: `noWindowAfterStarting=true` in `[Window]` of `easyeffectsrc`.
+   **Fixed upstream as [PR #5353](https://github.com/wwmm/easyeffects/pull/5353).**
+   The tray icon is a *separate* key (`showTrayIcon`, default true) —
+   set `false` in `[General]` for fully invisible service mode.
+
+   **Preset schema:** 8.2.9's loader requires a `blocklist` key in the
+   preset; a preset without it throws `key 'blocklist' not found` and the
+   **entire preset load fails silently** (no plugins instantiated).
+   Community-profile convention missed when building the preset by hand.
+   `output.blocklist = []` added to both the profile and the autoload copy.
+
+   **Suspend kills the chain:** s2idle tears down the PipeWire plugin
+   nodes; EE 8.2.9's service instance never rebuilds them after resume
+   (`easyeffects -l` against the running instance does not either —
+   measured). `user/local-bin/easyeffects-resume-monitor` +
+   `user/systemd-user/easyeffects-resume.service` fix it: a dbus
+   `PrepareForSleep` monitor (mirroring omarchy's sleep-lock pattern —
+   a user `suspend.target` unit never fires on resume; measured) that on
+   resume waits for the Speaker sink to exist (restart at T+1s races
+   PipeWire device restore and the autoload misses; measured) and then
+   restarts the service. Validated end-to-end with a logind-path RTC-wake
+   suspend cycle: chain rebuilt, headless, zero parse errors.
 
 Measured effect of the profile (EQ-only round, same instrument): +4–6 dB
 low-end lift at 60–200 Hz relative to 1 kHz, treble −1 dB, as designed.

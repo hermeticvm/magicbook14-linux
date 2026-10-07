@@ -1,0 +1,63 @@
+#!/bin/bash
+# easyeffects-resume-monitor — rebuild the EasyEffects plugin chain after
+# resume. Mirrors omarchy's omarchy-system-sleep-monitor pattern: a
+# long-running dbus PrepareForSleep watcher.
+#
+# Why: suspend kills the PipeWire plugin nodes; EasyEffects 8.2.9's
+# service-mode instance does not rebuild its chain on resume (measured).
+# A service restart does — but ONLY once the target device exists: EE's
+# autoload is keyed to the Speaker sink route and EE does not retry if it
+# starts before PipeWire has recreated the device (measured: restart at
+# T+1s after resume → chain dead; restart in a live session → chain built).
+# So: wait for the Speaker sink first, then restart the service.
+SINK="alsa_output.pci-0000_00_1f.3-platform-skl_hda_dsp_generic.HiFi__Speaker__sink"
+
+wait_for_sink() {
+  # PipeWire recreates devices within seconds of resume. Wait up to 30s.
+  local i
+  for i in $(seq 30); do
+    pactl list short sinks 2>/dev/null | grep -q "HiFi__Speaker__sink" && return 0
+    sleep 1
+  done
+  logger -t easyeffects-resume "warn: Speaker sink not found after 30s; restarting EE anyway"
+  return 1
+}
+
+consume_sleep_events() {
+  local line
+  while IFS= read -r line; do
+    # boolean false = resume (PrepareForSleep(false) fires on wake)
+    if [[ $line == *"boolean false"* ]]; then
+      wait_for_sink
+      logger -t easyeffects-resume "resume: restarting EasyEffects service"
+      systemctl --user restart 'app-easyeffects\x2dservice@autostart.service' || true
+      return 0
+    fi
+  done
+}
+
+monitor_sleep_events() {
+  local monitor_fd monitor_pid
+  coproc SLEEP_EVENTS {
+    exec dbus-monitor --system \
+      "type='signal',sender='org.freedesktop.login1',interface='org.freedesktop.login1.Manager',member='PrepareForSleep'"
+  }
+  monitor_fd=${SLEEP_EVENTS[0]}
+  monitor_pid=$SLEEP_EVENTS_PID
+
+  cleanup_monitor() {
+    kill "$monitor_pid" 2>/dev/null || true
+  }
+  trap cleanup_monitor EXIT
+
+  while IFS= read -r -u "$monitor_fd" line; do
+    if [[ $line == *"PrepareForSleep"* ]]; then
+      # next lines carry the boolean argument
+      if consume_sleep_events <&"$monitor_fd"; then
+        exit 0
+      fi
+    fi
+  done
+}
+
+monitor_sleep_events
