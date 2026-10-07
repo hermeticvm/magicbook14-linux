@@ -126,63 +126,70 @@ Everything from the DSC section is the HDR prerequisite: HDR10 needs
 10 bpc, and the link only carries it compressed. `hdr_output_metadata`
 + BT.2020 colorspace + DSC all ride the same modeset.
 
-## External displays over USB-C: blocked (M1010 firmware/driver gap)
+## External displays over USB-C: cold-boot yes, hotplug no (EC mux policy)
 
 Chassis: two USB-C ports, both Type-C-subsystem backed (`00:07.0` root port,
 `00:0d.0` TB xHCI + `00:0d.3` DMA1; host router `Gen14`, USB4), i915 TC
-PHYs (TC#2/TC#3, tbt-alt, 4 lanes). Tested with a 32" 6K TB4-class display
-and a 10 Gbps SSD, same ports, same cables, one evening:
+PHYs (TC#2/TC#3, tbt-alt, 4 lanes). Tested with a 32" 6K display (Kuycon
+G32P, TB4-class) and a 10 Gbps SSD, same ports, same cables:
 
 | Test | Result |
 |---|---|
-| SSD in port 1 | **SuperSpeed Plus Gen 2x1, 10 Gbps** on `00:0d.0` — SS lanes fine |
-| Display in port 1 | 480 Mbps PCH fallback — SS never connects |
-| Display in port 2 | identical 480 Mbps fallback |
-| TB4 display on a MacBook | 6K works — display side is healthy |
+| SSD, runtime hotplug | **10 Gbps SuperSpeed** on the TB xHCI — SS lanes fine |
+| Display, runtime hotplug (both ports) | 480 Mbps USB2 only; mux never flips to DP; no HPD |
+| Display, **connected at power-on** | **DP-3 connected, native 6144×3456@60** over DP-alt |
+| TB4 display on a MacBook | 6K works — display side healthy |
 
-So: ports carry SS, cable carries SS, display negotiates USB4 fine elsewhere
-— but with this host the display's SS lines never come up. No HPD, no TC
-messages, no USB4 partner on domain0, nothing for DRM to detect. A
-TB4-class display parks its SS lines until USB4 host negotiation succeeds
-(it does not fall back to USB3 like the SSD does); the USB4/DP-alt entry
-requires host-side PD commands (`Enter Mode` / USB4 Enter) — and on this
-machine **Linux has no path to issue them**:
+**Cold boot works**: HONOR's EC arms DP-alt mode (mux → 4 DP lanes +
+USB2 sideband, pin assignment D) during POST, and Linux inherits an
+already-negotiated link — HPD asserted, DP-3 connected, native 6K@60 at
+8 bpc over HBR3 (1344.65 MHz × 24 bpp = 32.3 Gbps vs 32.4 budget — a
+0.3% fit; 10 bpc would need DSC, stock policy won't). The monitor's USB
+hub stays at USB2 speeds even in this state — 4-lane DP leaves only the
+sideband; no USB4 tunneling ever establishes (no partner on domain0).
 
-- no UCSI ACPI device in the namespace (`INTC1043` absent; `INTC1042` is
-  the sensor hub), so `ucsi_acpi` has nothing to bind
-- `/sys/class/typec` never exists — no port class, no mux enumeration
-- HONOR's EC owns the PD controller and mux; firmware exposes a private
-  `TbtTypeC` SSDT dialect and a `DOCM: Apply CM mode to iTBT0/iTBT1`
-  command set (DSDT), no bridge to Linux
+**Hotplug doesn't**: at runtime attach, DP-alt entry needs a PD
+`Enter Mode` host command, and this machine exposes no path to issue one
+(`INTC1043` UCSI absent, `/sys/class/typec` never exists, HONOR EC
+dialect-locks the PD controller behind its `TbtTypeC` SSDT). USB3 data
+works at hotplug because SS training is PHY-autonomous (SSD proof);
+the mux just stays in USB orientation forever. Not an i915 bug — the
+fix lives in EC firmware (UCSI) or EC RE, not in any kernel patch.
 
-USB3 works (SSD proves it: autonomous, no policy needed). USB4-class
-peripherals that require host-negotiated entry don't. Until HONOR's EC
-speaks UCSI (or someone REs the `TbtTypeC` op-region), external displays
-over USB-C are **not achievable on this board under Linux** — same wall as
-the battery-limit offsets: EC-owned, dialect-locked. Document upstream if
-you own both boards. The built-in HDMI port remains for plain displays.
+Practical rule: **attach the 6K before power-on; don't hotplug it.**
+Runtime unplug/replug parks DP-3 until the next cold boot. (Untested:
+whether suspend/resume re-runs the EC arm routine — if yes, suspend
+becomes the hotplug workaround. Worth one test.)
 
-### Why the monitor still charges the laptop (documented, not bizarre)
+### Why the monitor charges the laptop (documented, not bizarre)
 
-The 6K display (Kuycon G32P class) delivers **up to 100 W upstream PD**
-through its USB-C input — a documented feature. Why power works while
-display doesn't: PD is a CC-line message protocol with independent halves.
-Power contracts (source advertises, sink requests) run autonomously on this
-EC — every PD charger proves it; the monitor's PSU is just another source
-(`ADP1 online=1` while attached, battery full). USB2 pins are always-on;
-USB3 trains itself in the PHY (10 Gbps SSD verified). Alt-mode entry
-(`Enter Mode` / USB4 Enter) is a **host-issued** PD command — the exact
-half HONOR's EC doesn't expose to Linux. Monitor on this laptop = charger,
-USB2 hub, USB3-capable port; DP-alt/USB4 dead. Fully consistent.
+The G32P delivers **up to 100 W upstream PD** through its USB-C input —
+a documented feature. Power contracts are sink-autonomous PD messages
+(every charger proves it); only alt-mode entry is host-issued. Hence the
+port's split personality: charger ✓, USB2 hub ✓, USB3 ✓ (SSD), USB4/DP
+✗ at hotplug, DP ✓ at cold boot.
 
-### HDMI escape hatch (future)
+### HDMI path (fallback, and FRL backport verdict)
 
-The display also takes HDMI 2.1 / DP inputs (ships USB-C, DP, HDMI cables).
-MTL has native HDMI 2.1 silicon, but i915 FRL is still landing upstream
-(Intel's 44-patch series); on 7.2.5 only detection/PCON symbols exist —
-no native FRL training. So the laptop's HDMI today is TMDS (≈HDMI 2.0):
-4K@60, no DSC, no 6K. Revisit when native FRL lands: 6K@60 over
-HDMI FRL+DSC would then be on the table.
+The display also takes HDMI 2.1. On 7.2.5 i915 that path is TMDS-class:
+4K@60, 8 bpc, no 6K (1371 MHz pixel clock vs 600 MHz TMDS cap). Intel's
+"Enable HDMI FRL for MTL+" 44-patch series (Aug 2026, LWN 1087803) would
+lift this — **but it's moot now**: native 6K over USB-C cold-boot covers
+the need, the series doesn't touch the hotplug/mux gap (EC-side), and a
+WIP 44-patch backport buys only a redundant HDMI backup path at real
+boot risk. Verdict: **skip; it arrives free if/when merged upstream.**
+The HDMI rule stays in `monitors.lua` as the plain-display fallback.
+
+### hyprmoncfg interplay (why config fights happened)
+
+`hyprmoncfgd` (user service) generates `~/.config/hypr/hyprmoncfg-monitors.lua`
+and patches `hyprland.lua` to load it **last** — its rules override
+`monitors.lua`. Mid-debugging it auto-captured a half-broken state
+(cm=dp3 on eDP, 480p fallback on the G32P) and every manual rule fought
+it. Resolved by editing its own profile files to the verified state
+(eDP srgb/@AC-refresh, DP-3 native 6K scale 2) — fix through the daemon,
+not against it. Lesson: on this setup there is exactly one source of
+truth per output: the daemon's overlay, loaded last.
 
 ### Chassis EMI note (keyboard)
 

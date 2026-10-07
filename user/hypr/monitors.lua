@@ -1,3 +1,7 @@
+-- BEGIN hyprmoncfg wake settings
+-- Shared with Omarchy while hyprmoncfg manages displays.
+hl.monitor({ output = "eDP-1", mode = "preferred", position = "0x0", scale = 2 })
+-- END hyprmoncfg wake settings
 -- See https://wiki.hypr.land/Configuring/Basics/Monitors/
 -- List current monitors and supported resolutions with: hyprctl monitors all
 
@@ -34,6 +38,20 @@ hl.monitor({
   sdrsaturation = 0.98,
   min_luminance = 0.012,
   max_luminance = 1600,
+})
+
+-- External: Kuycon G32P 32" 6K, HDMI path. The sink declares 6144x3456@60
+-- (needs HDMI 2.1 FRL + DSC), but i915 7.2.5 has no native FRL training —
+-- TMDS modes only. Best real mode: 3840x2160@60; 10 bpc fits the budget
+-- (17.8 < 18 Gbps) so the 10-bit panel gets depth. scale 1.25 ≈ the
+-- effective dpi of the same panel at 6K@2x on macOS. USB-C path is blocked
+-- (EC/UCSI — see the repo docs); HDMI is the working external route.
+hl.monitor({
+  output = "HDMI-A-1",
+  mode = "3840x2160@60",
+  position = "auto",
+  scale = 1.25,
+  bitdepth = 10,
 })
 
 -- Configure a specific monitor.

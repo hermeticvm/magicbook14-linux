@@ -32,7 +32,7 @@ fully understood daily driver.
 | Session restore, gestures, rounded-corner UI | ✅ | `user/hypr/`, `user/omarchy/` |
 | Battery widget: rolling-average estimate + session graphs | ✅ `user/omarchy/plugins/dh.power` | [desktop-ux doc](docs/desktop-ux.md) |
 | Bar display widget: refresh-rate pills (60/120 Hz) | ✅ `user/omarchy/plugins/dh.monitor` | [desktop-ux doc](docs/desktop-ux.md) |
-| External displays over USB-C | ❌ blocked — EC owns USB4/DP-alt negotiation; no UCSI | [display doc](docs/display.md) |
+| External 6K over USB-C | ⚠️ cold-boot ✓ native 6144×3456@60 · hotplug ✗ (EC mux policy) | [display doc](docs/display.md) |
 
 ## Layout
 
@@ -93,12 +93,13 @@ Things that were tried and did not work, kept because they cost real time:
    should still auto-flip; mpv gets the `mpv-hdr` wrapper, which flips
    explicitly and restores on exit.
 
-6. **6K TB4 display over USB-C** — ports are fine (10 Gbps SSD on the same
-   port/cable), the display is fine (6K on a MacBook), but its SS lines
-   never come up here: TB4-class displays wait for USB4 host negotiation,
-   which needs host PD commands Linux can't issue on this machine (no UCSI
-   ACPI device, no `/sys/class/typec`, HONOR EC dialect-locks the mux).
-   Same wall as the battery-limit offsets. USB3 peripherals work fine.
+6. **6K display hotplug over USB-C** — dead at runtime: TB4-class displays
+   wait for USB4 host negotiation, which needs host PD `Enter Mode` commands
+   this machine can't issue (no UCSI, no `/sys/class/typec`, HONOR EC
+   dialect-locks the mux). Cold boot with the display attached works — the
+   EC arms DP-alt at POST and Linux inherits the link (native 6144×3456@60).
+   USB3 hotplug unaffected (SS training is PHY-autonomous). Not an i915
+   bug; the fix is EC-side. Attach before power-on; don't hotplug.
 
 ## License
 
