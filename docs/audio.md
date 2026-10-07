@@ -64,6 +64,17 @@ The 492 MB HONOR "Audio" Windows package, unpacked:
    `HiFi__Speaker__sink`/`Speaker` route; app runs headless via
    `--service-mode` from `user/autostart/`.
 
+   **8.2.9 flag regression (found live):** `--service-mode` sets the
+   service-mode config but never emits the hide-window signal, so the UI
+   shows at every boot; the *deprecated* `--gapplication-service` does
+   both (src/command_line_parser.cpp:97–104). Fix without touching
+   deprecated flags: `noWindowAfterStarting=true` in the `[Window]` group
+   of `~/.config/easyeffects/db/easyeffectsrc` — "never show our window
+   after initialization **when running in service mode**" (label of the
+   kcfg key). Plain GUI launches are unaffected. Verified: service
+   restart → zero EE windows, chain intact, preset reload via
+   `easyeffects -l art14-bass`.
+
 Measured effect of the profile (EQ-only round, same instrument): +4–6 dB
 low-end lift at 60–200 Hz relative to 1 kHz, treble −1 dB, as designed.
 Live-music capture with enhancer active shows 80–160 Hz energy tracking the
