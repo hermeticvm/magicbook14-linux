@@ -32,8 +32,16 @@ trickle; harmless but worth knowing when reading the meter.
   session) and at login (`user/autostart/honor-edp-refresh.desktop`). The
   monitors.lua default stays 60 (battery-first); the eval carries every
   monitor-rule field — bitdepth, cm overrides, luminances — because a
-  rule-mode-only eval would reset them. Verified live: AC → 120 Hz with
-  DSC still engaged at 10 bpc, colorspace sRGB; udev chain end-to-end.
+  mode-only eval would reset them. Verified live: AC → 120 Hz with DSC
+  still engaged at 10 bpc, colorspace sRGB; udev chain end-to-end.
+  Hardened: no-op when current mode already
+  matches (power_supply events fire often — capacity polls — and each
+  needless eval is a needless modeset/flicker), journal-logged
+  (`logger -t edp-refresh`; udev RUN output is otherwise discarded).
+  **Authority rule: nothing else may re-apply eDP modes** — `hyprmoncfgd`
+  is unmanaged/disabled for exactly this reason (its ~70 s poll
+  re-application of a stale captured mode fought this policy; see the
+  display doc).
 - **Powertop runtime-PM tunables** (`system/systemd/omarchy-powertop-tune.service`
   + `system/tune-scripts/`): runtime PM on 10 PCI devices, NMI watchdog off,
   WiFi power-save. ~1 W at idle. Only tunables that are safe across suspend.

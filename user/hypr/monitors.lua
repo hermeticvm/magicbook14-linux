@@ -1,7 +1,3 @@
--- BEGIN hyprmoncfg wake settings
--- Shared with Omarchy while hyprmoncfg manages displays.
-hl.monitor({ output = "eDP-1", mode = "preferred", position = "0x0", scale = 2 })
--- END hyprmoncfg wake settings
 -- See https://wiki.hypr.land/Configuring/Basics/Monitors/
 -- List current monitors and supported resolutions with: hyprctl monitors all
 
@@ -27,7 +23,7 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = omarchy
 -- panel's real mastering limits into the HDR metadata blob when it flips.
 hl.monitor({
   output = "eDP-1",
-  mode = "3120x2080@120",
+  mode = "3120x2080@60",
   position = "auto",
   scale = omarchy_monitor_scale,
   bitdepth = 10,

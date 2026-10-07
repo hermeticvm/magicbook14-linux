@@ -180,16 +180,30 @@ WIP 44-patch backport buys only a redundant HDMI backup path at real
 boot risk. Verdict: **skip; it arrives free if/when merged upstream.**
 The HDMI rule stays in `monitors.lua` as the plain-display fallback.
 
-### hyprmoncfg interplay (why config fights happened)
+### hyprmoncfg: unmanaged (its poll re-application fights the power policy)
 
-`hyprmoncfgd` (user service) generates `~/.config/hypr/hyprmoncfg-monitors.lua`
-and patches `hyprland.lua` to load it **last** — its rules override
-`monitors.lua`. Mid-debugging it auto-captured a half-broken state
-(cm=dp3 on eDP, 480p fallback on the G32P) and every manual rule fought
-it. Resolved by editing its own profile files to the verified state
-(eDP srgb/@AC-refresh, DP-3 native 6K scale 2) — fix through the daemon,
-not against it. Lesson: on this setup there is exactly one source of
-truth per output: the daemon's overlay, loaded last.
+`hyprmoncfgd` (user service) generates `~/.config/hypr/hyprmoncfg-monitors.lua`,
+patches `hyprland.lua` to load it **last**, and runs an "automatic
+reconciliation" every ~70 s that **re-applies its saved profile**. That
+profile is a snapshot of capture time — on a battery boot it captures
+60 Hz, and then stomps every runtime change back to 60 Hz once a minute,
+including the edp-refresh AC policy (120 on power). Symptoms it produced:
+flicker every reconciliation cycle, and AC plug-in flipping to 120 and
+being dragged back within a minute. Two modes cannot share one output.
+
+Fix: the tool's own `hyprmoncfg unmanage` — stops the switching and removes
+its include, so `monitors.lua` + `edp-refresh` own everything again;
+`systemctl --user disable --now hyprmoncfgd.service` keeps it from
+re-arming at login. Profiles stay saved on disk; `hyprmoncfg manage`
+restores it (and the conflict — don't re-manage while edp-refresh runs,
+or re-save the profile at the target refresh first).
+
+`edp-refresh` hardened to match: skips the rule eval when the current
+mode already equals the target (power_supply udev events fire often —
+battery capacity polls — and each needless eval is a needless modeset),
+and logs to the journal (`logger -t edp-refresh`) because udev RUN
+output is otherwise discarded. Verified: 60→120 on AC, second run skips,
+both logged.
 
 ### Chassis EMI note (keyboard)
 

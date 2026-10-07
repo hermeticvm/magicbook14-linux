@@ -8,19 +8,34 @@
 # The eval'd rule REPLACES the active eDP-1 rule, so it carries every field
 # from ~/.config/hypr/monitors.lua — a mode-only eval would reset bitdepth
 # and the DisplayID HDR overrides. Keep in sync with that file.
+#
+# No-op when the mode already matches: power_supply udev events fire often
+# (battery capacity polls, charge-state changes) and every needless rule
+# eval is a needless modeset — a visible flicker. Only eval on change.
+# Logs to the journal (udev RUN output is discarded): logger -t edp-refresh.
 set -u
 RTDIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 SIG=$(ls "$RTDIR/hypr" 2>/dev/null | head -1)
 [ -n "$SIG" ] || exit 0   # no Hyprland session yet — autostart/udev race, skip quietly
 pgrep -u "$(id -un)" Hyprland >/dev/null 2>&1 || exit 0
 HC(){ XDG_RUNTIME_DIR="$RTDIR" hyprctl -i "$SIG" "$@"; }
+log(){ logger -t edp-refresh -p user.info -- "$*"; }
 
 AC=0
 for f in /sys/class/power_supply/A*/online; do
   [ "$(cat "$f" 2>/dev/null)" = "1" ] && AC=1
 done
 MODE="3120x2080@60"; [ "$AC" = "1" ] && MODE="3120x2080@120"
+TARGET_HZ=${MODE##*@}
+
+CUR_HZ=$(HC monitors 2>/dev/null | awk '/^Monitor eDP-1/{f=1; next} f && /@/{match($0,/@([0-9]+)/,a); print a[1]; exit}')
+[ -n "$CUR_HZ" ] || CUR_HZ=0
+
+if [ "$CUR_HZ" = "$TARGET_HZ" ]; then
+  log "AC=$AC target=${TARGET_HZ}Hz current=${CUR_HZ}Hz — unchanged, no modeset"
+  exit 0
+fi
 
 RULE='hl.monitor({output="eDP-1", mode="'"$MODE"'", position="auto", scale=2, bitdepth=10, supports_wide_color=1, supports_hdr=1, cm="srgb", sdrbrightness=1.2, sdrsaturation=0.98, min_luminance=0.012, max_luminance=1600})'
 HC eval "$RULE" >/dev/null 2>&1
-echo "edp-refresh: AC=$AC → $MODE"
+log "AC=$AC: ${CUR_HZ}Hz → ${TARGET_HZ}Hz (rule applied)"
