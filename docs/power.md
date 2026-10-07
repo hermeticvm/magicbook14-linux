@@ -29,19 +29,29 @@ trickle; harmless but worth knowing when reading the meter.
   120 Hz mode costs panel time, not link time). `user/local-bin/edp-refresh`
   applies it; triggered by `system/udev/96-honor-edp-refresh.rules` on
   power_supply events (`system/bin/honor-edp-refresh-udev` bridges to the
-  session) and at login (`user/autostart/honor-edp-refresh.desktop`). The
-  monitors.lua default stays 60 (battery-first); the eval carries every
-  monitor-rule field — bitdepth, cm overrides, luminances — because a
-  mode-only eval would reset them. Verified live: AC → 120 Hz with DSC
-  still engaged at 10 bpc, colorspace sRGB; udev chain end-to-end.
-  Hardened: no-op when current mode already
-  matches (power_supply events fire often — capacity polls — and each
-  needless eval is a needless modeset/flicker), journal-logged
-  (`logger -t edp-refresh`; udev RUN output is otherwise discarded).
-  **Authority rule: nothing else may re-apply eDP modes** — `hyprmoncfgd`
-  is unmanaged/disabled for exactly this reason (its ~70 s poll
-  re-application of a stale captured mode fought this policy; see the
-  display doc).
+  session), at login (`user/autostart/honor-edp-refresh.desktop`), and by
+  `user/systemd-user/edp-refresh.{service,timer}` — a 60 s
+  reconciliation timer. The eval carries every monitor-rule field —
+  bitdepth, cm overrides, luminances — because a mode-only eval would
+  reset them. Verified live: AC → 120 Hz with DSC still engaged at 10 bpc,
+  colorspace sRGB; udev chain end-to-end; timer fires and no-ops.
+  Hardened: no-op when current mode already matches (power_supply events
+  fire often — capacity polls — and each needless eval is a needless
+  modeset/flicker), journal-logged (`logger -t edp-refresh`; udev RUN
+  output is otherwise discarded).
+  **Why the timer + dynamic config mode exist (both measured incidents):**
+  a `@60` literal in monitors.lua made *every* config reload while on AC
+  silently modeset 60 Hz (bar-plugin rate pills sed-write + reload → 64
+  minutes at 60 Hz on AC, from the kernel modeset log at
+  `drm.debug=0x04`). monitors.lua now computes the mode from ADP1 at load
+  (io.open works in Hyprland's Lua env), so reloads are policy-correct;
+  the timer heals any other actor (runtime evals) within 60 s.
+  **Authority rule: nothing else may persist eDP mode changes** —
+  `hyprmoncfgd` is unmanaged/disabled (its ~70 s poll re-application of a
+  stale captured mode fought this policy; see the display doc); the bar
+  plugin's rate pills fall back to runtime-only evals against the dynamic
+  mode (their sed no longer matches) and are reverted by the timer within
+  60 s — manual override is deliberately ephemeral.
 - **Powertop runtime-PM tunables** (`system/systemd/omarchy-powertop-tune.service`
   + `system/tune-scripts/`): runtime PM on 10 PCI devices, NMI watchdog off,
   WiFi power-save. ~1 W at idle. Only tunables that are safe across suspend.

@@ -7,8 +7,26 @@ local omarchy_monitor_scale = 2
 hl.env("GDK_SCALE", tostring(omarchy_gdk_scale))
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = omarchy_monitor_scale })
 
--- Internal OLED panel: 60 Hz by default (battery-conscious; 120 Hz costs
--- extra panel power and is worth it mainly on AC). Change it here anytime.
+-- Internal OLED panel — refresh policy: battery → 60 Hz, AC → 120 Hz
+-- (120 costs measurably more panel power; both modes share the pixel
+-- clock). The mode is COMPUTED AT CONFIG LOAD from ADP1, so any config
+-- reload (toggle plugins, hyprctl reload) lands on the policy-correct
+-- mode instead of a stale literal — a @60 literal here used to drop
+-- the display to 60 Hz on every reload while on AC (measured).
+-- Runtime transitions are handled by edp-refresh (udev power events +
+-- a 60 s reconciliation timer; see user/systemd-user/). The bar plugin's
+-- rate pills write the mode literal back via sed when they match one —
+-- with the dynamic mode below they fall back to a runtime-only eval,
+-- and the timer reverts any manual override within 60 s.
+local function on_ac()
+  local f = io.open("/sys/class/power_supply/ADP1/online", "r")
+  if not f then return false end
+  local v = f:read("*l")
+  f:close()
+  return v == "1"
+end
+local edp_mode = on_ac() and "3120x2080@120" or "3120x2080@60"
+
 -- bitdepth 10: with DSC forced (honor-edp-dsc.service) this drives the panel
 -- at true 10 bpc instead of 6 bpc + dithering. Without DSC the link can't
 -- carry it and the driver silently falls back to 18 bpp, as before.
@@ -23,7 +41,7 @@ hl.monitor({ output = "", mode = "preferred", position = "auto", scale = omarchy
 -- panel's real mastering limits into the HDR metadata blob when it flips.
 hl.monitor({
   output = "eDP-1",
-  mode = "3120x2080@60",
+  mode = edp_mode,
   position = "auto",
   scale = omarchy_monitor_scale,
   bitdepth = 10,

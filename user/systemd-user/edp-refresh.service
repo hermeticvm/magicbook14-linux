@@ -1,0 +1,8 @@
+[Unit]
+Description=eDP refresh policy reconciliation (battery 60 / AC 120)
+# Runs edp-refresh, which no-ops when the current mode already matches
+# the power policy (see ~/.local/bin/edp-refresh).
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/edp-refresh
