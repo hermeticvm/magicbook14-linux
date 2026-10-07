@@ -1,0 +1,26 @@
+#!/bin/bash
+# edp-refresh — eDP-1 refresh-rate policy for the HONOR Art 14 (M1010):
+#   on battery → 60 Hz  (OLED panel-clock idle power, measured ~1 W+ worse at 120)
+#   on AC       → 120 Hz
+# Applied at login (autostart) and on power_supply udev events
+# (via /usr/local/bin/honor-edp-refresh-udev as root).
+#
+# The eval'd rule REPLACES the active eDP-1 rule, so it carries every field
+# from ~/.config/hypr/monitors.lua — a mode-only eval would reset bitdepth
+# and the DisplayID HDR overrides. Keep in sync with that file.
+set -u
+RTDIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+SIG=$(ls "$RTDIR/hypr" 2>/dev/null | head -1)
+[ -n "$SIG" ] || exit 0   # no Hyprland session yet — autostart/udev race, skip quietly
+pgrep -u "$(id -un)" Hyprland >/dev/null 2>&1 || exit 0
+HC(){ XDG_RUNTIME_DIR="$RTDIR" hyprctl -i "$SIG" "$@"; }
+
+AC=0
+for f in /sys/class/power_supply/A*/online; do
+  [ "$(cat "$f" 2>/dev/null)" = "1" ] && AC=1
+done
+MODE="3120x2080@60"; [ "$AC" = "1" ] && MODE="3120x2080@120"
+
+RULE='hl.monitor({output="eDP-1", mode="'"$MODE"'", position="auto", scale=2, bitdepth=10, supports_wide_color=1, supports_hdr=1, cm="srgb", sdrbrightness=1.2, sdrsaturation=0.98, min_luminance=0.012, max_luminance=1600})'
+HC eval "$RULE" >/dev/null 2>&1
+echo "edp-refresh: AC=$AC → $MODE"

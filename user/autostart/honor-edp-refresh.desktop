@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=eDP refresh policy (60 Hz battery / 120 Hz AC)
+Comment=Applies the monitor refresh policy once the session is up; udev re-applies on plug events
+Exec=/home/dh/.local/bin/edp-refresh
+Terminal=false
+Categories=Utility;
+StartupNotify=false
+X-GNOME-Autostart-enabled=true

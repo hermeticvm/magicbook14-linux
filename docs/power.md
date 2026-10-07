@@ -23,10 +23,17 @@ trickle; harmless but worth knowing when reading the meter.
 
 ## What made the difference (and what didn't)
 
-- **60 Hz on eDP** (`user/hypr/monitors.lua`): the single biggest idle win on
-  the OLED panel — 120 Hz idle is measurably worse. User keeps 60 on battery;
-  profile-switch on plug-in is available but not wired (deliberate: the
-  OLED's 120 Hz mode is panel-clock-bound and visibly less efficient).
+- **Refresh policy: 60 Hz on battery, 120 Hz on AC** — the single biggest
+  idle win on the OLED panel is 60 Hz (120 Hz idle is measurably worse;
+  the panel stretches vblank, so both modes share one pixel clock and the
+  120 Hz mode costs panel time, not link time). `user/local-bin/edp-refresh`
+  applies it; triggered by `system/udev/96-honor-edp-refresh.rules` on
+  power_supply events (`system/bin/honor-edp-refresh-udev` bridges to the
+  session) and at login (`user/autostart/honor-edp-refresh.desktop`). The
+  monitors.lua default stays 60 (battery-first); the eval carries every
+  monitor-rule field — bitdepth, cm overrides, luminances — because a
+  rule-mode-only eval would reset them. Verified live: AC → 120 Hz with
+  DSC still engaged at 10 bpc, colorspace sRGB; udev chain end-to-end.
 - **Powertop runtime-PM tunables** (`system/systemd/omarchy-powertop-tune.service`
   + `system/tune-scripts/`): runtime PM on 10 PCI devices, NMI watchdog off,
   WiFi power-save. ~1 W at idle. Only tunables that are safe across suspend.

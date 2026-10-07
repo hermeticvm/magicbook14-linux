@@ -1,0 +1,10 @@
+#!/bin/bash
+# Called by /etc/udev/rules.d/96-honor-edp-refresh.rules on power_supply
+# changes (AC plug/unplug). Applies the eDP refresh policy in the user
+# session. See ~/.local/bin/edp-refresh (user/local-bin/ in this repo).
+#
+# udev RUN gives no env: set the desktop user here per machine.
+TARGET_USER="${TARGET_USER:-dh}"
+pgrep -u "$TARGET_USER" Hyprland >/dev/null 2>&1 || exit 0
+sleep 1
+runuser -u "$TARGET_USER" -- "$(getent passwd "$TARGET_USER" | cut -d: -f6)/.local/bin/edp-refresh"

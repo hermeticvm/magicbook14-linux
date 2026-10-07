@@ -1,0 +1,2 @@
+# eDP refresh policy (60 Hz battery / 120 Hz AC) on power events
+ACTION=="change", SUBSYSTEM=="power_supply", RUN+="/usr/local/bin/honor-edp-refresh-udev"
