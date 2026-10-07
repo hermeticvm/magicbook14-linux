@@ -56,4 +56,20 @@ already aging slowly).
 - Charges at ~55 W (USB-C PD 65 W brick) to ~80%, then tapers; full at ~2.1 h.
 - No USB-C "slow charger" notification mismatch: the EC negotiates properly
   with non-HONOR PD bricks; any 65 W+ works, 30 W bricks it down politely.
-- Overnight suspend drain test and 5× suspend/resume cycle: still parked.
+
+## Sleep (s2idle): measured, clean
+
+Firmware is s2idle-only (`/sys/power/mem_sleep`, no S3) — Modern Standby,
+the mechanism that *can* drain badly, so it was measured rather than
+trusted:
+
+- `suspend_stats` 6/6 success, zero failed steps, zero journal errors at
+  resume; freeze time 0.06–0.11 s every cycle.
+- Overnight lid suspend (01:58→09:43) ran **on AC**: charged to the cap
+  while asleep — no drain event to measure there.
+- The on-battery sample: 48 min lid suspend, 89%→88% — **~0.15 W,
+  ~0.3 %/h**. Broken modern-standby machines do 3–5 %/h; this is good.
+- No spurious wake cycles across the 7¾ h overnight window (no logind
+  suspend/resume pairs, no kernel PM entries until the lid opened).
+- One cosmetic: lid-switch bounce at resume (7 open/close events in 7 s)
+  is absorbed by logind's post-resume holdoff — never triggers a suspend.
