@@ -126,6 +126,53 @@ Everything from the DSC section is the HDR prerequisite: HDR10 needs
 10 bpc, and the link only carries it compressed. `hdr_output_metadata`
 + BT.2020 colorspace + DSC all ride the same modeset.
 
+## External displays over USB-C: blocked (M1010 firmware/driver gap)
+
+Chassis: two USB-C ports, both Type-C-subsystem backed (`00:07.0` root port,
+`00:0d.0` TB xHCI + `00:0d.3` DMA1; host router `Gen14`, USB4), i915 TC
+PHYs (TC#2/TC#3, tbt-alt, 4 lanes). Tested with a 32" 6K TB4-class display
+and a 10 Gbps SSD, same ports, same cables, one evening:
+
+| Test | Result |
+|---|---|
+| SSD in port 1 | **SuperSpeed Plus Gen 2x1, 10 Gbps** on `00:0d.0` — SS lanes fine |
+| Display in port 1 | 480 Mbps PCH fallback — SS never connects |
+| Display in port 2 | identical 480 Mbps fallback |
+| TB4 display on a MacBook | 6K works — display side is healthy |
+
+So: ports carry SS, cable carries SS, display negotiates USB4 fine elsewhere
+— but with this host the display's SS lines never come up. No HPD, no TC
+messages, no USB4 partner on domain0, nothing for DRM to detect. A
+TB4-class display parks its SS lines until USB4 host negotiation succeeds
+(it does not fall back to USB3 like the SSD does); the USB4/DP-alt entry
+requires host-side PD commands (`Enter Mode` / USB4 Enter) — and on this
+machine **Linux has no path to issue them**:
+
+- no UCSI ACPI device in the namespace (`INTC1043` absent; `INTC1042` is
+  the sensor hub), so `ucsi_acpi` has nothing to bind
+- `/sys/class/typec` never exists — no port class, no mux enumeration
+- HONOR's EC owns the PD controller and mux; firmware exposes a private
+  `TbtTypeC` SSDT dialect and a `DOCM: Apply CM mode to iTBT0/iTBT1`
+  command set (DSDT), no bridge to Linux
+
+USB3 works (SSD proves it: autonomous, no policy needed). USB4-class
+peripherals that require host-negotiated entry don't. Until HONOR's EC
+speaks UCSI (or someone REs the `TbtTypeC` op-region), external displays
+over USB-C are **not achievable on this board under Linux** — same wall as
+the battery-limit offsets: EC-owned, dialect-locked. Document upstream if
+you own both boards. The built-in HDMI port remains for plain displays.
+
+### Chassis EMI note (keyboard)
+
+While the 6K was connected, the internal PS/2 keyboard (i8042/atkbd — not
+USB, no shared data path) showed doubled and dropped keys. Unplug → clean,
+replug → jank, A/B verified; an SSD on the same port → no jank. This board
+already needed an atkbd phantom-scancode hwdb patch on day one — its
+keyboard lines are noise-sensitive. With a TB4 display + PSU + cable into
+the chassis: break the ground/EMI path (monitor PSU on a different outlet,
+ferrite on the cable, or a powered hub in between) and the jank goes.
+Not a Linux bug; electrical.
+
 ## xe driver note
 
 `8086:7d55` is present in `xe`'s alias table and `xe` loads here, but
