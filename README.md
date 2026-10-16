@@ -31,6 +31,7 @@ fully understood daily driver.
 | HDR10 per-content (OLED 1600 nits) | ✅ fullscreen-only: `mpv-hdr` + auto-flip for tagged apps | [display doc](docs/display.md) |
 | Session restore, gestures, rounded-corner UI | ✅ | `user/hypr/`, `user/omarchy/` |
 | Battery widget: rolling-average estimate + session graphs | ✅ `user/omarchy/plugins/dh.power` | [desktop-ux doc](docs/desktop-ux.md) |
+| Battery charge limit + "charge to full" button | ✅ enforced at 70–90, EC arms its 3 presets only | [power doc](docs/power.md) |
 | Bar display widget: refresh-rate pills (60/120 Hz) | ✅ `user/omarchy/plugins/dh.monitor` | [desktop-ux doc](docs/desktop-ux.md) |
 | External 6K over USB-C | ⚠️ cold-boot ✓ native 6144×3456@60 · hotplug ✗ (EC mux policy) | [display doc](docs/display.md) |
 

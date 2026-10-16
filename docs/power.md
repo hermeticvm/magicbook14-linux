@@ -61,13 +61,43 @@ trickle; harmless but worth knowing when reading the meter.
 - `99-omarchy-audio-powersave.conf` (`system/modprobe/`): HDA codec power-save
   timeout — free, silent on this board (no hiss).
 
-## Battery limit: negative result
+## Battery charge limit: enforced, presets only
 
-The ZQC-P's EC charge-limit (write `70 90` to its sysfs offset) **does not
-arm on M1010**. Our EC exposes different offsets — the write reads back but
-charging continues to 100%. Offsets are in the M1010 repo's EC notes; mapping
-them properly is parked (DSDT/SMBus RE, low value: 90% health battery is
-already aging slowly).
+This board's EC **does** hold a charge ceiling, and it holds only for the
+three pairs HONOR PC Manager offers — `40 70`, `70 90`, `95 100`. Any other
+pair (upstream hwdb's catch-all `75 80`, a `60 80` of your own) is echoed
+back through `/sys/devices/platform/huawei-wmi/charge_control_thresholds` and
+silently ignored by the EC: sysfs reads back what you asked for and the pack
+charges to 100% anyway.
+
+The live pair on MRA-XXX is at EC RAM **0xE4/0xE5**, with the mode at
+**0xE6**: reading `0x46 0x5A 0x02` = `70 90` = mode 2 = "Office 70–90 %" in
+PC Manager. The pair is written through the mailbox `ECCC(0x82, start, stop)`
+and the EC derives the mode from the **start byte alone** (40→1, 70→2, 95→3,
+anything else→0 = unarmed). The ZQC-P offsets `0x80/0x81/0x85` that the
+sibling repo documents are **battery telemetry here**, which is what made
+this look like a negative result the first time round — resolved by live EC
+reads on 2026-10-08, in `honor-m1010-linux`
+`docs/hardware/mra-xxx-power.md`.
+
+Measured behaviour, not inference: AC has been in since 2026-10-14 15:48 and
+the pack has sat at 90 % with `status` reading `Not charging` the whole time —
+every row of dh.power's 48 h state history is in the charging family, no
+discharge, no excursion above the ceiling.
+
+Operate it with `honor-charge-limit` (`system/bin/`, install to
+`/usr/local/bin/`), and from the battery widget's **CHARGE LIMIT** button
+(see [desktop-ux.md](desktop-ux.md)):
+
+```sh
+honor-charge-limit status    # the pair the EC holds, and its mode
+honor-charge-limit full      # 95 100 — charges to 100 %
+honor-charge-limit limit     # 70 90  — the everyday ceiling
+```
+
+It is a *charging* limit: with the ceiling restored while the pack sits above
+it, the EC simply stops topping up and the level stays put until it falls
+below the floor on its own.
 
 ## Charge behaviors worth knowing
 

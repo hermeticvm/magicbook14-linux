@@ -234,11 +234,27 @@ power_rate=$(awk -v rate="${power_rate_raw:-0}" 'BEGIN {
   sub(/\.0$/, "", rounded)
   print rounded
 }')
-threshold_start=$(awk '/charge-start-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$battery_info")
-threshold_end=$(awk '/charge-end-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$battery_info")
+# The pair the limit is actually written through comes first, UPower last.
+# UPower does not read this node: it takes its idea of the pair from the
+# CHARGE_LIMIT udev property, and upstream's 60-upower-battery.hwdb sets a
+# catch-all 75,80 for every laptop. On this board that pair is one the EC
+# ignores — only 40/70, 70/90 and 95/100 arm — so UPower reports 75-80% while
+# the EC is armed at 70-90%, which is exactly the "the applet says 80 but it
+# charges to 90" this field must not repeat.
+threshold_node="${OMARCHY_CHARGE_THRESHOLD_NODE:-/sys/devices/platform/huawei-wmi/charge_control_thresholds}"
+threshold_start=""
+threshold_end=""
+[[ -r $threshold_node ]] && read -r threshold_start threshold_end < "$threshold_node"
 
-[[ -z $threshold_end ]] && threshold_end=$(cat "$power_supply_path"/BAT*/charge_control_end_threshold 2>/dev/null | head -1)
-[[ -z $threshold_start ]] && threshold_start=$(cat "$power_supply_path"/BAT*/charge_control_start_threshold 2>/dev/null | head -1)
+if [[ -z $threshold_end ]]; then
+  threshold_start=$(cat "$power_supply_path"/BAT*/charge_control_start_threshold 2>/dev/null | head -1)
+  threshold_end=$(cat "$power_supply_path"/BAT*/charge_control_end_threshold 2>/dev/null | head -1)
+fi
+
+if [[ -z $threshold_end ]]; then
+  threshold_start=$(awk '/charge-start-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$battery_info")
+  threshold_end=$(awk '/charge-end-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$battery_info")
+fi
 
 ac_online=false
 for supply in "$power_supply_path"/*; do

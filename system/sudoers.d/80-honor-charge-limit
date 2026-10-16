@@ -1,0 +1,33 @@
+# 80-honor-charge-limit — passwordless sudo for the battery panel's charge
+# switch, and for nothing else.
+#
+# The omarchy battery widget (dh.power, user/omarchy/plugins/) has a "charge to
+# full" button, because the EC here arms a charge ceiling and there are days
+# that end away from a socket. A button in a bar panel cannot type a password,
+# so the two calls the button makes are whitelisted.
+#
+# Why the grant is safe to write: honor-charge-limit validates its own argument
+# against the board's preset list and writes one fixed sysfs node. Together with
+# the two argument strings below, that is "switch the charge limit", not "run a
+# script as root". The security of this file rests entirely on
+# /usr/local/bin/honor-charge-limit staying root-owned and not writable by the
+# user named here — check that before installing it anywhere else:
+#
+#   -rwxr-xr-x 1 root root /usr/local/bin/honor-charge-limit
+#
+# Install (the directory is already 0750 root:root and included by sudoers):
+#
+#   sudo install -m 0755 -o root -g root system/bin/honor-charge-limit \
+#        /usr/local/bin/honor-charge-limit
+#   sudo install -m 0440 -o root -g root system/sudoers.d/80-honor-charge-limit \
+#        /etc/sudoers.d/80-honor-charge-limit
+#   sudo visudo -c
+#
+# Then, as the desktop user and without a password:
+#
+#   sudo -n /usr/local/bin/honor-charge-limit status
+#
+# Change "dh" to the desktop user on another machine.
+
+dh ALL=(root) NOPASSWD: /usr/local/bin/honor-charge-limit full, \
+                       /usr/local/bin/honor-charge-limit limit

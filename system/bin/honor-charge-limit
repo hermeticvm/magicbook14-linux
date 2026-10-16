@@ -1,0 +1,83 @@
+#!/bin/bash
+# honor-charge-limit — switch the MRA-XXX EC charge limit between the presets
+# its firmware arms, and say what the EC did with the pair.
+#
+#   honor-charge-limit status    pair the EC holds, and its charge mode
+#   honor-charge-limit full      95 100 — mode 3, PC Manager's "100%"
+#   honor-charge-limit limit     70 90  — mode 2, the "Office"/90% ceiling
+#
+# Installed to /usr/local/bin/honor-charge-limit and whitelisted in
+# /etc/sudoers.d/80-honor-charge-limit for exactly two arguments, because the
+# omarchy battery panel (dh.power, this repo's user/omarchy/plugins/) grows a
+# "charge to full" button and a bar panel cannot ask for a password. Keep this
+# file root-owned and not writable by the desktop user: the sudo grant means
+# "run this file as root", and the argument check below is what keeps the grant
+# from being more than it says.
+#
+# The pairs are hardcoded and never taken from an argument, because this board's
+# EC arms only the three presets PC Manager offers: 40/70, 70/90 and 95/100
+# (the mode byte is derived from the start byte alone). Any other pair — the
+# 75/80 the desktop applet writes out of upstream's hwdb catch-all included — is
+# echoed back through sysfs and silently ignored. See
+# docs/hardware/mra-xxx-power.md in honor-m1010-linux, which measured this:
+# the live pair on MRA-XXX is at EC 0xE4/0xE5 with the mode at 0xE6, and the
+# ZQC-P offsets 0x80/0x81/0x85 are battery telemetry here.
+#
+# exit: 0 done · 1 cannot (no node, read-only sysfs) · 2 usage · 3 stored but
+#       the EC did not arm it
+
+set -euo pipefail
+
+NODE=/sys/devices/platform/huawei-wmi/charge_control_thresholds
+ECIO=/sys/kernel/debug/ec/ec0/io
+# dd skip: EC 0xE4. Three bytes, so the read covers 0xE4/0xE5 (the pair) and
+# 0xE6 (the charge mode) in one go.
+PAIR_OFFSET=228
+
+usage() { echo "usage: honor-charge-limit [status|full|limit]" >&2; exit 2; }
+
+[[ $# -le 1 ]] || usage
+action="${1:-status}"
+case "$action" in
+    status | full | limit) ;;
+    *) usage ;;
+esac
+
+[[ -r "$NODE" ]] || {
+    echo "honor-charge-limit: $NODE is missing — is huawei-wmi loaded?" >&2
+    exit 1
+}
+
+case "$action" in
+    full)  pair="95 100" ;;
+    limit) pair="70 90" ;;
+    *)     pair="$(<"$NODE")" ;;
+esac
+
+if [[ "$action" != status ]]; then
+    [[ -w "$NODE" ]] || {
+        echo "honor-charge-limit: $NODE is not writable (sysfs read-only?)" >&2
+        exit 1
+    }
+    printf '%s\n' "$pair" > "$NODE"
+    # Read it back before believing it. The driver takes whatever it is given;
+    # whether the EC uses it is the next paragraph's question, not the write's.
+    pair="$(<"$NODE")"
+fi
+
+printf 'pair %s\n' "$pair"
+
+# ec_sys exposes the EC page read-only by default (its write_support parameter
+# is off), which is all this needs. Reading it needs root, so a bare
+# `honor-charge-limit status` prints the pair and stops there.
+[[ -r "$ECIO" ]] || modprobe ec_sys 2>/dev/null || true
+if [[ -r "$ECIO" ]]; then
+    if read -r ec_start ec_end ec_mode <<<"$(dd if="$ECIO" bs=1 skip="$PAIR_OFFSET" count=3 2>/dev/null | od -An -tu1)"; then
+        printf 'ec %s/%s mode %s\n' "$ec_start" "$ec_end" "$ec_mode"
+        if [[ "$action" != status && "$ec_mode" == "0" ]]; then
+            echo "honor-charge-limit: the EC stored '$pair' but did not arm it (mode 0)." >&2
+            echo "    Only 40/70, 70/90 and 95/100 arm on this board." >&2
+            exit 3
+        fi
+    fi
+fi

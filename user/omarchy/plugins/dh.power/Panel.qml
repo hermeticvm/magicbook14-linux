@@ -31,6 +31,24 @@ Panel {
     var url = Qt.resolvedUrl("battery-status.sh").toString()
     return url.indexOf("file://") === 0 ? url.substring(7) : url
   }
+  // Root-owned preset switch (repo: magicbook14-linux system/bin/). The button
+  // below runs it with `sudo -n`: /etc/sudoers.d/80-honor-charge-limit
+  // whitelists these two exact calls, so nothing in this panel can prompt for a
+  // password. The pairs themselves live in the helper — this board's EC arms
+  // only 40/70, 70/90 and 95/100, and 95/100 is the one that ends at a full pack.
+  readonly property string chargeLimitHelper: "/usr/local/bin/honor-charge-limit"
+  readonly property var chargePair: Model.parseThresholdPair(root.batteryInfo.threshold)
+  readonly property bool chargeLimitFull: !!root.chargePair && root.chargePair.end >= 100
+  property string chargeLimitMessage: ""
+  property bool chargeLimitFailed: false
+
+  readonly property string chargeLimitSummary: {
+    var p = root.chargePair
+    if (!p) return "No charge limit reported"
+    var pair = p.start + "–" + p.end + "%"
+    return root.chargeLimitFull ? pair + " · charging to full" : pair + " · ceiling armed"
+  }
+
   // Discharge-session graphs (battery-status.sh --graph): 96 five-minute
   // buckets — mean watts and screen-on minutes — covering the last 8h of the
   // current (or most recent) discharge session. graphWindowEnd is 0 until the
@@ -230,6 +248,15 @@ Panel {
     actionProc.running = true
   }
 
+  // "full" arms 95/100 (charge to the top), "limit" puts 70/90 back.
+  function setChargeLimit(preset) {
+    if (chargeLimitProc.running) return
+    chargeLimitMessage = ""
+    chargeLimitFailed = false
+    chargeLimitProc.command = ["sudo", "-n", root.chargeLimitHelper, preset]
+    chargeLimitProc.running = true
+  }
+
   function togglePercentage() {
     root.settings = Object.assign({}, root.settings, { showPercentage: !root.showPercentage })
     if (root.bar && root.bar.shell) root.bar.shell.updateEntryInline(root.moduleName, root.settings)
@@ -294,6 +321,36 @@ Panel {
   Process {
     id: actionProc
     onExited: root.refresh()
+  }
+
+  // The charge-limit switch. Its output is the whole point of the helper — the
+  // pair it wrote, and (with root's EC access) the mode the EC armed — so it is
+  // shown in the panel rather than discarded. A refused sudo call lands on
+  // stderr and reads as what it is: `sudo: a password is required`.
+  Process {
+    id: chargeLimitProc
+    property string out: ""
+    property string err: ""
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: chargeLimitProc.out = text.trim()
+    }
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: chargeLimitProc.err = text.trim()
+    }
+    onExited: function(exitCode) {
+      var out = chargeLimitProc.out
+      var err = chargeLimitProc.err
+      chargeLimitProc.out = ""
+      chargeLimitProc.err = ""
+      chargeLimitFailed = exitCode !== 0
+      // Success prints "pair 70 90" then "ec 70/90 mode 2"; one line each.
+      chargeLimitMessage = exitCode === 0
+        ? out.split("\n").join(" · ")
+        : (err.split("\n")[0] || "exit " + exitCode)
+      root.refresh()
+    }
   }
 
   Timer { interval: 5000; running: root.opened; repeat: true; onTriggered: root.refresh() }
@@ -592,6 +649,63 @@ Panel {
                 }
               }
             }
+          }
+        }
+
+        // ---------- Charge limit ----------
+        // This board's EC arms three preset pairs and one of them is a charge
+        // ceiling, so it is a switch rather than a slider: full on the way out
+        // of the door, the everyday ceiling back afterwards.
+        PanelSeparator {
+          foreground: root.bar.foreground
+        }
+
+        Column {
+          width: parent.width
+          spacing: Style.space(10)
+
+          PanelSectionHeader {
+            text: "CHARGE LIMIT"
+            foreground: root.bar.foreground
+            fontFamily: root.bar.fontFamily
+          }
+
+          Text {
+            width: parent.width
+            textFormat: Text.PlainText
+            text: root.chargeLimitSummary
+            color: root.bar.foreground
+            opacity: 0.6
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            elide: Text.ElideRight
+          }
+
+          Button {
+            width: parent.width
+            iconText: root.chargeLimitFull ? "󰂅" : "󰂄"
+            iconSize: Style.font.title
+            text: root.chargeLimitFull ? "Restore charge limit" : "Charge to full"
+            fontSize: Style.font.bodySmall
+            foreground: root.bar.foreground
+            fontFamily: root.bar.fontFamily
+            horizontalPadding: Style.spacing.controlPaddingX
+            verticalPadding: Style.spacing.controlPaddingY + Style.space(2)
+            bordered: true
+            active: root.chargeLimitFull
+            onClicked: root.setChargeLimit(root.chargeLimitFull ? "limit" : "full")
+          }
+
+          Text {
+            visible: root.chargeLimitMessage !== ""
+            width: parent.width
+            textFormat: Text.PlainText
+            text: root.chargeLimitMessage
+            color: root.chargeLimitFailed ? Color.urgent : root.bar.foreground
+            opacity: root.chargeLimitFailed ? 1.0 : 0.6
+            font.family: root.bar.fontFamily
+            font.pixelSize: Style.font.caption
+            wrapMode: Text.Wrap
           }
         }
 

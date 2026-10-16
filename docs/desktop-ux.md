@@ -37,6 +37,21 @@ Stock `omarchy.power` panel, cloned, then:
   `ts · W · state · screen_on`, feeds session stats + graphs). Honest
   limit: a charge that happens entirely while the shell is down can't
   split a session — the next *sampled* charge resets it.
+- **CHARGE LIMIT**: "Charge to full" / "Restore charge limit", over the EC's
+  own presets — `95 100` arms the 100 % ceiling, `70 90` puts the everyday
+  one back. A switch rather than a slider because the EC arms only three
+  preset pairs and silently ignores anything else (see
+  [power.md](power.md)). It shells out to `honor-charge-limit`
+  (`system/bin/`, installed as `/usr/local/bin/honor-charge-limit`) through
+  `sudo -n`, which works because `system/sudoers.d/80-honor-charge-limit`
+  whitelists those two exact calls. The helper's output — the pair it wrote
+  and the EC mode it read back — is printed under the button, in the theme's
+  urgent colour if the call failed.
+- The panel's "Charge limit" readout reads the sysfs node the limit is
+  written through, *not* upower. UPower takes its pair from the
+  `CHARGE_LIMIT` udev property, and upstream's `60-upower-battery.hwdb` sets
+  a catch-all `75,80` for every laptop, so upower says 75–80 % while the EC
+  is armed at 70–90 %.
 
 ## Display widget (`user/omarchy/plugins/dh.monitor`)
 

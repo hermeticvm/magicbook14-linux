@@ -45,6 +45,19 @@ function profileIcon(name) {
   return "󰂄"
 }
 
+// battery-status.sh reports the charge ceiling as "70-90%" (start-end), or as
+// a single number when the EC reports only one. Either way, the end is the one
+// that matters: it is the level the pack stops at, so 95-100 is "charging to
+// full" and 70-90 is "ceiling armed".
+function parseThresholdPair(text) {
+  var s = String(text || "")
+  var pair = s.match(/([0-9]+)[^0-9]+([0-9]+)/)
+  if (pair) return { start: Number(pair[1]), end: Number(pair[2]) }
+  var single = s.match(/([0-9]+)/)
+  if (!single) return null
+  return { start: Number(single[1]), end: Number(single[1]) }
+}
+
 function batteryFraction(device) {
   return device && device.isPresent ? Math.max(0, Math.min(1, device.percentage)) : 0
 }
@@ -96,6 +109,7 @@ if (typeof module !== "undefined") {
     parseKeyValue: parseKeyValue,
     parseProfiles: parseProfiles,
     profileIcon: profileIcon,
+    parseThresholdPair: parseThresholdPair,
     batteryFraction: batteryFraction,
     chargeThresholdActive: chargeThresholdActive,
     batteryIcon: batteryIcon,
