@@ -193,9 +193,9 @@ Everything from the DSC section is the HDR prerequisite: HDR10 needs
 ## External displays over USB-C: cold-boot yes, hotplug no (EC mux policy)
 
 > Status: 6K@60 over USB-C is confirmed working, but on one of the two ports
-> only; the other is unconfirmed either way. The hotplug findings below come
-> from one session some weeks ago and have not been re-verified since the
-> switch to `xe`.
+> only. Which port was not recorded, and the other is unconfirmed, so try
+> both. The hotplug findings below come from one session some weeks ago and
+> have not been re-verified since the switch to `xe`.
 
 Chassis: two USB-C ports, both Type-C-subsystem backed (`00:07.0` root port,
 `00:0d.0` Thunderbolt (TB) xHCI + `00:0d.3` DMA1; host router `Gen14`, USB4),

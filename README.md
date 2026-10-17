@@ -109,12 +109,13 @@ Things that were tried and did not work, kept because they cost real time:
    Delivery (PD) `Enter Mode` commands this machine can't issue: there is no
    USB Type-C Connector System Software Interface (UCSI) here, no
    `/sys/class/typec`, and the HONOR EC dialect-locks the mux. Cold boot with
-   the display attached does work: 6K@60 is confirmed on one of the two ports,
-   with the EC arming DisplayPort alternate mode (DP-alt) at POST and Linux
-   inheriting the link. The hotplug half was measured in one session and not
-   re-verified since the switch to `xe` - treat that half as a lead. Attach
-   before power-on; don't hotplug. HDMI is not an alternative for 6K: it falls
-   back to 4K until HDMI 2.1 FRL support lands.
+   the display attached does work: 6K@60 is confirmed on one of the two ports
+   (which one was not recorded, so try both), with the EC arming DisplayPort
+   alternate mode (DP-alt) at POST and Linux inheriting the link. The hotplug
+   half was measured in one session and not re-verified since the switch to
+   `xe` - treat that half as a lead. Attach before power-on; don't hotplug.
+   HDMI is not an alternative for 6K: it falls back to 4K until HDMI 2.1 FRL
+   support lands.
 
 ## License
 
