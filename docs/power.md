@@ -14,9 +14,16 @@ All numbers from a USB-C power-meter unless noted; they're reproducible with
 | **Suspended, charging** | **46 W** ← odd one |
 | Suspended, battery | (parked: not yet re-measured) |
 
-NOTE: the table above was measured before DSC was enabled (display doc);
+NOTE: The table above was measured before DSC was enabled (display doc);
 the DSC engine's idle cost at 60 Hz is not yet re-measured — expect a
 small addition, re-run the idle ladder when convenient.
+
+Ladder reconciliation (2026-10-17): a mid-session idle window on the 61 %
+pack measured **5.72 W** on the battery counter — consistent with the 5.3 W
+screensaver floor, *not* with a screen-on idle. The window's display state
+was not captured, so read it as a cross-check on the floor rather than a new
+row. The meter-based rows above stand; see "Instrument caveat" below before
+trusting any battery-counter figure.
 
 The 46 W suspended-while-charging is the EC topping up in bursts rather than
 trickle; harmless but worth knowing when reading the meter.
@@ -43,7 +50,8 @@ trickle; harmless but worth knowing when reading the meter.
   a `@60` literal in monitors.lua made *every* config reload while on AC
   silently modeset 60 Hz (bar-plugin rate pills sed-write + reload → 64
   minutes at 60 Hz on AC, from the kernel modeset log at
-  `drm.debug=0x04`). monitors.lua now computes the mode from ADP1 at load
+  `drm.debug=0x04` — never leave that flag on; its measured cost is in
+  display.md). monitors.lua now computes the mode from ADP1 at load
   (io.open works in Hyprland's Lua env), so reloads are policy-correct;
   the timer heals any other actor (runtime evals) within 60 s.
   **Authority rule: nothing else may persist eDP mode changes** —
@@ -57,9 +65,129 @@ trickle; harmless but worth knowing when reading the meter.
   WiFi power-save. ~1 W at idle. Only tunables that are safe across suspend.
 - **Power profiles** (performance/balanced/saver): **no measurable charging
   behavior change**; platform profile on this EC is cosmetic for charging,
-  mild CPU effect. Not worth automation here.
+  mild CPU effect. Not worth automation here. The CPU half of that is now
+  quantified under "CPU power envelope" below — saver is the energy-optimal
+  end of the trade, and it is already the daily state.
 - `99-omarchy-audio-powersave.conf` (`system/modprobe/`): HDA codec power-save
   timeout — free, silent on this board (no hiss).
+
+## CPU power envelope: measured — nothing left to take (2026-10-16)
+
+4 P + 8 E + 2 LP-E cores (LP-E = CPUs 16–17, 2.5 GHz ceiling). Method: fixed
+workloads at pinned affinities, battery counter cross-checked against sampled
+`current_now`; **relative comparisons only** — see the instrument caveat below.
+
+| knob | value | on battery |
+|---|---|---|
+| PL1 / PL2 / peak | 41 / 43 / 83 W | **never binding** — peak system draw measured 26.7 W (power-saver), 35.6 W (balanced) |
+| `energy_performance_preference` | `power` (power-saver) | P-cores cap at **~2.5 GHz** against a 4.5 GHz capability — three runs, p95 = 2500 MHz |
+| same, `balance_power` (balanced) | | 4.58 GHz single-thread, 3.70 GHz p95 all-core |
+| `no_turbo` / `max_perf_pct` | 0 / 100 | turbo is *available* and simply not chosen |
+
+Energy per unit of work (identical loop, nJ per iteration):
+
+| profile | 1 thread | 18 threads |
+|---|---|---|
+| power-saver | 27.5 | 7.19–8.08 |
+| balanced | 29.1 | 8.60 |
+| performance | 31.9 | 9.04 |
+
+What follows from that:
+
+- **Do not add a PL1/PL2 cap hook on battery.** 41 W is an AC-side number; the
+  battery path never lets the CPU near it, so such a cap would be a no-op. A
+  PL1/PL2 cap on battery is the obvious-looking suggestion and it looks free —
+  this is the measurement that says it isn't: the envelope is already capped by
+  the platform, well below the value you'd be writing.
+- **Do not disable turbo.** `EPP=power` already does it in effect, on a
+  hardware capability of 4.5 GHz.
+- **Power-saver is the energy-optimal profile** — 6 % better per unit of work
+  single-thread, ~15 % all-core — and it charges 44 % single-thread throughput
+  for that. The trade is already in force; nothing to automate.
+- **Parallelism beats clock.** The same work costs 30.4 nJ/unit run serially
+  versus 7.2 nJ/unit at 18-way, because the ~6 W floor is paid either way.
+  Throttling *down* to save energy is the wrong direction on this machine.
+
+## Undervolting: unavailable — and it is firmware, not the kernel (2026-10-17)
+
+The one lever that would cut power at *unchanged* frequency, and it is closed.
+Two gates, only one of them real:
+
+1. **Kernel `msr` driver — not the blocker.** `filter_write()` in
+   `arch/x86/kernel/msr.c` permits writes in the default mode and merely warns
+   and taints (`CPU_OUT_OF_SPEC`); `msr.allow_writes=on` silences it. Secure
+   Boot is off and lockdown is `none`, so `LOCKDOWN_MSR` is out of the picture.
+2. **Intel Undervolt Protection / CFG Lock — the wall.** The offset interface
+   (MSR `0x150`, OC mailbox) *is* present on Meteor Lake — UnderVolter ships a
+   `6,170,*` profile for it — but writes are gated behind a hidden firmware
+   variable and HONOR BIOS 3.05 exposes no toggle. Non-HX mobile parts have
+   been reported locked this way since 12th gen, with MSI and ASUS documenting
+   the same gate on their own boards.
+
+The two-minute test, **not yet run on this board** — the conclusion above is
+from the documented behaviour of the gate, not a local measurement:
+
+```sh
+sudo pacman -S --needed intel-undervolt msr-tools
+printf 'undervolt 0 "CPU" -50\nundervolt 1 "GPU" -50\nundervolt 2 "CPU Cache" -50\n' \
+  | sudo tee /etc/intel-undervolt.conf
+sudo intel-undervolt apply     # dmesg "Write to unrecognized MSR 0x150 ..." is expected and harmless
+sudo intel-undervolt read      # 0.00 mV everywhere ⇒ firmware dropped the write
+```
+
+Deliberately not attempted: the pre-boot route (UnderVolter / OC-mailbox writes,
+plus patching the hidden CFG-Lock variable in NVRAM). It needs NVRAM byte
+patching and a modified Secure Boot chain to buy a few watts. Not worth it here.
+
+## Idle budget, layer by layer (`turbostat`, 2026-10-17)
+
+`sudo turbostat sleep 10`, 60 Hz, screen on, `EPP=power`, 1.58 % CPU busy:
+
+| counter | value |
+|---|---|
+| `PkgWatt` — CPU package | **2.74 W** |
+| `CorWatt` / `GFXWatt` | 0.70 / 0.17 W |
+| `C10%` — cores | 91.46 % |
+| `GFX%rc6` — GPU | 89.92 % |
+| `SAM%mc6` — memory controller | 99.52 % |
+| `Pkg%pc10` | 6.31 % |
+| `SYS%LPI` | 0.00 % |
+| `SysWatt` — PSys, whole platform | 5.89 W |
+
+`Pkg%pc10 ≈ 6 %` together with `SYS%LPI = 0` is **expected, not a fault**:
+package C10 and S0ix both require the display pipeline to be idle, and a 3K
+panel at 60 Hz never lets that happen. Cores, GPU and memory controller reach
+their deep states regardless. The SoC is at its floor.
+
+Conditions: taken with `drm.debug=0x04` still left on from the display flicker
+diagnosis (display doc) — the driver was printing ~5.6k KMS lines/s and cycling
+DC6 ~1.1k times/s at the time. Re-measured after removing it: `PkgWatt` 2.74 →
+**2.58 W**, `SysWatt` 5.89 → **5.78 W**, `GFX%rc6` 89.92 → 94.34 %, and the
+battery-side screen-on idle 9.7–10.1 → **9.6–10.0 W** (inside the noise). The
+thrash was itself an artifact of the debug logging, so the corrected floor is
+**~2.6 W package** — the fix was worth taking for I/O and wakeups, not watts.
+
+The battery-side screen-on figure for the same conditions was 9.7–10.1 W.
+Against PSys (5.89 W) that leaves ~4 W for panel + display engine + storage +
+VRM losses — not software-addressable. **Screen-on idle runtime on this 56 Wh
+pack is therefore ~5.5–6 h.** (That 9.7–10.1 W window sat inside the gauge's
+unreliable regime; PSys is the trustworthy half. Re-measure with the meter when
+convenient and replace this paragraph with a meter number.)
+
+## Instrument caveat: the battery gauge lies above ~95 % SoC (2026-10-17)
+
+Recorded because it produced two wrong conclusions in a single session. With
+the pack at 100 %:
+
+- `charge_now` **froze at 0** — zero µAh moved over 20 s at a reported 1.26 A.
+- It then **over-reported 2×** against sampled `current_now` (2358 vs 1220 mA),
+  recovered to agreement for one phase, and passed the gate again at 97 %.
+- At 70 % SoC the same two estimators agreed to 2.6 %.
+
+Rule: never take an absolute watt figure from `charge_now`/`current_now` above
+~95 % SoC. Require the two estimators to agree within 20 % before believing a
+phase, and prefer `turbostat` (package/PSys) or the USB-C meter for absolutes.
+`charge_now` quantises at 1 mAh, so a 45 s window is ±10 % at best regardless.
 
 ## Battery charge limit: enforced, presets only
 

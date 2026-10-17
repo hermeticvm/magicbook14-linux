@@ -10,7 +10,7 @@ fully understood daily driver.
 | | |
 |---|---|
 | Model | HONOR MagicBook Art 14 2024, DMI `MRA-XXX`, board `M1010`, SKU `C233` |
-| CPU / iGPU | Core Ultra 5 125H (Meteor Lake) / Intel Arc, `8086:7d55` on `i915` |
+| CPU / iGPU | Core Ultra 5 125H (Meteor Lake) / Intel Arc, `8086:7d55` on `xe` (forced via command line) |
 | Display | EDO OLED 3120×2080 3:2 120/60 Hz, touchscreen, rounded corners |
 | Audio | Realtek ALC256 (`10ec:0256`, codec SSID `1ee7:2060`), 6 drivers, 3 amp channels |
 | Fingerprint | FPC `10a5:a900` in the power button |
@@ -27,6 +27,8 @@ fully understood daily driver.
 | Fn hotkeys incl. keyboard backlight | ✅ working | [hotkeys doc](docs/hotkeys.md) |
 | Webcam hot-plug notifications | ✅ working | udev rule in `system/udev/` |
 | Power/charging behavior | ✅ measured + tuned | [power doc](docs/power.md) |
+| CPU power envelope: PL1/EPP/turbo/undervolt | ✅ measured — PL1 non-binding, `EPP=power` already optimal, undervolt firmware-locked | [power doc](docs/power.md) |
+| Idle power budget (SoC floor) | ✅ measured — 2.74 W package, 5.89 W platform, 90 % GPU RC6 | [power doc](docs/power.md) |
 | Display 10-bit over DSC | ✅ 10 bpc via runtime force, no kernel patch | [display doc](docs/display.md) |
 | HDR10 per-content (OLED 1600 nits) | ✅ fullscreen-only: `mpv-hdr` + auto-flip for tagged apps | [display doc](docs/display.md) |
 | Session restore, gestures, rounded-corner UI | ✅ | `user/hypr/`, `user/omarchy/` |

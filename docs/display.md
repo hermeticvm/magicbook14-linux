@@ -71,6 +71,56 @@ and one auto-revert timer stomped one property write before the install
 ran. The measured ladder: 6 bpc+dither → 8 bpc DSC (max bpc still 8) →
 **10 bpc DSC** (property 10 + force + one dpms cycle).
 
+### Do not leave `drm.debug=0x04` on (measured cost)
+
+The 2026-10-07 flicker diagnosis needed KMS debug output
+(`/usr/local/bin/honor-drm-debug` → `echo 04 > /sys/module/drm/parameters/debug`).
+It got wired into the **deployed** `honor-edp-dsc.service` as a second
+`ExecStart=` and stayed there. The repo's copy of that unit is clean — the line
+is local drift, so re-installing `system/systemd/honor-edp-dsc.service` removes
+it.
+
+Cost measured 2026-10-17, 23 h uptime, `xe` bound:
+
+| metric | `drm.debug=0x04` | `drm.debug=0` |
+|---|---|---|
+| journal lines/s | 5,629 — **5,622 xe/drm (99.9 %)** | **2–7** |
+| journal growth | 140 kB/s ≈ **12 GB/day** | ~0 |
+| journal on disk | 3.1 GB | 481 MB (after `--vacuum-size=500M`) |
+| `nvme0n1` writes | 743 kB/s | 480 kB/s — remainder is the user's apps |
+| DC6 power-well cycles | **~1,120/s** | **~1/s** (cursor blink) |
+| `PkgWatt` | 2.74 W | **2.58 W** |
+| `SysWatt` (PSys) | 5.89 W | **5.78 W** |
+| `GFX%rc6` | 89.92 % | 94.34 % |
+| battery idle, screen on | 9.7–10.1 W | 9.6–10.0 W (inside the noise) |
+
+The messages are `drm_dbg_kms`-level — `[drm:skl_enable_dc6 [xe]]` is
+DRM_DEBUG's own output format — so with `drm.debug=0` they cost nothing.
+journald's `RateLimit*` will not help: kernel messages arrive via `/dev/kmsg`,
+not the syslog socket, and are not rate-limited. The flag has to go.
+
+Knock-on — **confirmed, and it was the logging**: re-enabling `drm.debug=0x04`
+for 10 s after the fix produced **51** `Setting DC state` lines (~1.0 cycle/s,
+cursor-blink driven) against 2,247 lines/s before. The ~1 kHz thrash was
+therefore a *symptom* of the synchronous `printk` inside the DC6 power-well
+handshake, not a driver defect — nothing to file upstream. The watts moved only
+a little (`PkgWatt` −0.16 W, `SysWatt` −0.11 W, battery-side unchanged inside
+the noise); the value of this fix is I/O, journal size and ~5.6k wakeups/s, not
+runtime. Don't oversell it in the power doc.
+
+Fix:
+
+```sh
+sudo sed -i '/honor-drm-debug/d' /etc/systemd/system/honor-edp-dsc.service
+sudo systemctl daemon-reload
+echo 0 | sudo tee /sys/module/drm/parameters/debug
+sudo journalctl --vacuum-size=500M     # the 3.1 GB backlog is mostly this
+```
+
+Keep `/usr/local/bin/honor-drm-debug` on disk — it is the right tool when a
+display problem genuinely needs KMS traces. Just never wire it into a boot
+unit, and remember it is per-boot state (`/proc/cmdline` has no `drm.debug`).
+
 ## HDR: real hardware, per-content engage (HDR10 OLED)
 
 The panel is a genuine HDR display, not "HDR400" laptop marketing. EDID
@@ -216,8 +266,60 @@ the chassis: break the ground/EMI path (monitor PSU on a different outlet,
 ferrite on the cable, or a powered hub in between) and the jank goes.
 Not a Linux bug; electrical.
 
+## Panel self-refresh: PSR1 on, and it is the ceiling (2026-10-17)
+
+`sudo cat /sys/kernel/debug/dri/0000:00:02.0/i915_edp_psr_status` — the file
+keeps its `i915_` name because it belongs to the shared Intel display code, not
+to the `i915` driver (see the driver note at the end):
+
+```
+Sink support: PSR = yes [0x03], Panel Replay = no, Panel Replay Selective Update = no, Panel Replay DSC support = not supported
+PSR mode: PSR1 enabled
+Source PSR/PanelReplay ctl: enabled [0x81f006e6]
+Source PSR/PanelReplay status: IDLE [0x04010003]
+Busy frontbuffer bits: 0x00000000
+Performance counter: 5
+```
+
+and at every modeset, the crtc state dump:
+`psr: enabled, selective update: disabled, panel replay: disabled, selective fetch: disabled`.
+
+Read together, the position is unambiguous: **PSR1 is on** — the base panel
+self-refresh, which is most of the win — and the deeper states are ruled out by
+the *sink*, not by us. This panel declares no Panel Replay, no Panel Replay
+Selective Update and no Panel Replay DSC at all, so no module parameter,
+debugfs knob or kernel patch can conjure them. The live confirmation, from
+`turbostat` at idle with the panel running: 90 % GPU RC6 residency (power doc).
+
+The `xe` parameters are all at driver default, so none of this is a config we
+disabled:
+
+| parameter | value |
+|---|---|
+| `enable_psr` | `-1` (auto → enabled) |
+| `enable_psr2_sel_fetch` | `Y` |
+| `enable_panel_replay` | `-1` (auto) |
+| `enable_dc`, `enable_fbc` | `-1` (auto) |
+| `enable_sagv` | `Y` |
+
+Note `enable_psr2_sel_fetch = Y` while the crtc state says
+`selective fetch: disabled`: the driver declining a sink that can't take it,
+not a setting we got wrong. Escape hatch if it ever needs forcing for an
+experiment: `i915_edp_psr_debug` (0644, currently `0`).
+
 ## xe driver note
 
-`8086:7d55` is present in `xe`'s alias table and `xe` loads here, but
-i915 owns Meteor Lake by default policy. Not chased: the runtime DSC
-stack above makes the question moot for this machine.
+`8086:7d55` is present in `xe`'s alias table, and **`xe` is the driver actually
+bound to this machine's iGPU**, forced by the kernel command line
+(`i915.force_probe=!7d55 xe.force_probe=7d55`): `/sys/class/drm/card0/device/driver`
+→ `/sys/bus/pci/drivers/xe`, with zero devices under `i915`. Upstream's default
+policy would give Meteor Lake to i915, but that is not what runs here.
+
+This is worth stating explicitly because it is easy to misread: the `i915_*`
+debugfs names used throughout this doc (the DSC knobs, `i915_edp_psr_status`)
+come from the **shared Intel display code**, which kept its `i915_` prefix when
+`xe` took over the display side. They are not evidence about which driver is
+bound — check the symlink above.
+
+Not chased: whether i915 would serve this panel better, since the runtime DSC
+stack makes the question moot for this machine.
