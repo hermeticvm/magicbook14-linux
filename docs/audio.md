@@ -1,13 +1,20 @@
 # Audio: six speakers, no subwoofer, one psychoacoustic profile
 
-The machine is advertised with a "6-speaker system with subwoofer". Reality on
-this board (codec SSID `1ee7:2060`, PCI audio `1ee7:2059`):
+Reviews and the Windows marketing describe a "6-speaker system with
+subwoofer". Reality on this board (codec SSID `1ee7:2060`, PCI audio
+`1ee7:2059`):
 
-- Six drivers, three amp channels, all working under Linux — but the pin
+- Six drivers, three amp channels, all working under Linux - but the pin
   configuration in the stock `snd-hda-codec-alc269` leaves two pairs asleep.
 - **No pair reproduces low bass better than any other.** Measured, repeatedly.
-- The "subwoofer" in the Windows marketing is **software**: a psychoacoustic
+- The "subwoofer" is **software**, not a driver: a psychoacoustic
   bass-synthesis APO stack (Awinic SKTune). There is no smart-amp IC.
+
+Terms used below: APO (audio processing object), DSP (digital signal
+processor), DMIC (digital microphone), FFT (fast Fourier transform), EQ
+(equalizer), LSP (Linux Studio Plugins), SSID (subsystem ID), ACPI (Advanced
+Configuration and Power Interface), I2S (Inter-IC Sound), ALSA (Advanced Linux
+Sound Architecture), SOF (Sound Open Firmware), BT (Bluetooth).
 
 ## What was measured
 
@@ -28,21 +35,21 @@ Results (config D = all three pin pairs woken; dB at stimulus freq):
 | 500 Hz | 66.4 dB | +8.4 |
 | 8 kHz | 70.3 dB | +12.3 |
 
-Key comparisons (all within ±0.5 dB — no pair is a woofer):
+Key comparisons (all within ±0.5 dB - no pair is a woofer):
 
 - Pin 0x14 alone ≈ pin 0x1b alone ≈ all pairs, **every band**.
 - Pin 0x1a alone: best 300–500 Hz, rolls off >2 kHz → mid/treble pair.
 - Adding any "second pair" adds zero low-frequency output.
 
 So: two mid/treble-tuned pairs and one pair identical to them. Roll-off
-below 200 Hz is steep and physical — no routing or pin trick recovers it.
+below 200 Hz is steep and physical - no routing or pin trick recovers it.
 
 ## The Windows reference (why no hardware bass exists)
 
 The 492 MB HONOR "Audio" Windows package, unpacked:
 
 - Awinic stack = **pure software**: `SWC\AWDZAPO` virtual device, AwinicSKTuneAPO
-  PRE/POST/MEC audio-processors, 9 config `.bin`s — psychoacoustic bass
+  PRE/POST/MEC audio-processors, 9 config `.bin`s - psychoacoustic bass
   synthesis + excursion protection. No Awinic silicon on any bus.
 - DTS:X Ultra handles only HP/BT/USB routes (per-SSID SQLite tuning DB
   `dts_apo4_oem_offline_hptuning_1EE72060.db`).
@@ -53,7 +60,7 @@ The 492 MB HONOR "Audio" Windows package, unpacked:
 
 1. **Kernel**: patched `snd-hda-codec-alc269` overlay quirk
    `SND_PCI_QUIRK(0x1ee7, 0x2060, "HONOR MRA-XXX M1010", ALC256_FIXUP_HONOR_MRB_XXX_M1020_AUDIO)`
-   — wakes the sleeping pin pairs. Rebuilt automatically on kernel updates
+   - wakes the sleeping pin pairs. Rebuilt automatically on kernel updates
    (`system/hooks/95-honor-modules.hook` → `system/bin/honor-modules-rebuild.sh`).
    Upstream in the M1010 fix repo (PR #15).
 2. **EasyEffects** (`user/easyeffects/`): the psychoacoustic layer Windows ships,
@@ -72,10 +79,10 @@ The 492 MB HONOR "Audio" Windows package, unpacked:
    (src/command_line_parser.cpp:97–104). Fix without touching deprecated
    flags: `noWindowAfterStarting=true` in `[Window]` of `easyeffectsrc`.
    **Fixed upstream as [PR #5353](https://github.com/wwmm/easyeffects/pull/5353).**
-   The tray icon is a *separate* key (`showTrayIcon`, default true) —
+   The tray icon is a *separate* key (`showTrayIcon`, default true) -
    set `false` in the same `[Window]` group for fully invisible service
    mode. Verified at the dbus level: `RegisteredStatusNotifierItems`
-   empty after restart. (First attempt put it in `[General]` — kcfg
+   empty after restart. (First attempt put it in `[General]` - kcfg
    grouping matters; the group is `[Window]`, per `easyeffects_db.kcfg`.
    EE also round-trips `easyeffectsrc` on preset loads, so hand-edits
    can race the app's own save.)
@@ -88,10 +95,10 @@ The 492 MB HONOR "Audio" Windows package, unpacked:
 
    **Suspend kills the chain:** s2idle tears down the PipeWire plugin
    nodes; EE 8.2.9's service instance never rebuilds them after resume
-   (`easyeffects -l` against the running instance does not either —
+   (`easyeffects -l` against the running instance does not either -
    measured). `user/local-bin/easyeffects-resume-monitor` +
    `user/systemd-user/easyeffects-resume.service` fix it: a dbus
-   `PrepareForSleep` monitor (mirroring omarchy's sleep-lock pattern —
+   `PrepareForSleep` monitor (mirroring omarchy's sleep-lock pattern -
    a user `suspend.target` unit never fires on resume; measured) that on
    resume waits for the Speaker sink to exist (restart at T+1s races
    PipeWire device restore and the autoload misses; measured) and then
@@ -101,7 +108,7 @@ The 492 MB HONOR "Audio" Windows package, unpacked:
 Measured effect of the profile (EQ-only round, same instrument): +4–6 dB
 low-end lift at 60–200 Hz relative to 1 kHz, treble −1 dB, as designed.
 Live-music capture with enhancer active shows 80–160 Hz energy tracking the
-40–80 Hz band — the harmonic-synthesis signature.
+40–80 Hz band - the harmonic-synthesis signature.
 
 ## Capture path (the debugging breakthrough)
 
@@ -111,8 +118,8 @@ average channels in post. The measurement suite does exactly this.
 
 ## What did NOT work
 
-- Expecting pins 0x14/0x1a to be a woofer pair — refuted by measurement.
-- Any idea that a different pin config could yield bass — three configs,
+- Expecting pins 0x14/0x1a to be a woofer pair - refuted by measurement.
+- Any idea that a different pin config could yield bass - three configs,
   one verdict.
 
 The panel of "who has bass" is closed: **physics roll-off + synthesis** is

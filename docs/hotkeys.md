@@ -2,8 +2,9 @@
 
 ## The 15-key map (huawei-wmi overlay)
 
-Stock `huawei-wmi` knows none of this board's WMI codes; every Fn combination
-was silent until the keymap overlay. Patch adds to the driver's keymap:
+Stock `huawei-wmi` (the vendor Windows Management Instrumentation (WMI)
+driver) knows none of this board's WMI codes; every Fn combination was silent
+until the keymap overlay. Patch adds to the driver's keymap:
 
 | WMI code | Key |
 |---|---|
@@ -19,9 +20,9 @@ was silent until the keymap overlay. Patch adds to the driver's keymap:
 `95-honor-modules.hook` (deferred 60 s via systemd-run so it never races an
 in-flight kernel install). Source tarball cached in `/var/tmp/honor-modules/`.
 
-## hwdb: silencing atkbd noise
+## Hardware database (hwdb): silencing atkbd noise
 
-The FN-row also emits raw `0xf7` scancodes via atkbd on some presses —
+The FN-row also emits raw `0xf7` scancodes via atkbd on some presses -
 `/etc/udev/hwdb.d/61-honor-keyboard.hwdb` (not shipped here; trivial):
 
     keyboard:dmi:bvnHONOR:*:svnHONOR:pnMRA-XXX:pvrM1010*
@@ -34,5 +35,5 @@ The FHD camera is a detachable magnetic puck (USB `3277:00a8`, fixed port
 `system/bin/magicbook-webcam-notify` → desktop notification. Verified
 single-fire per plug event.
 
-No driver needed — uvcvideo handles it; the rule exists purely for UX
+No driver needed - uvcvideo handles it; the rule exists purely for UX
 (attached/detached feedback).
