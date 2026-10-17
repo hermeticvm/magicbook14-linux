@@ -192,9 +192,10 @@ Everything from the DSC section is the HDR prerequisite: HDR10 needs
 
 ## External displays over USB-C: cold-boot yes, hotplug no (EC mux policy)
 
-> Status: tested in one session some weeks ago and not re-verified since,
-> including after the switch to `xe`. Treat this as a lead worth following up,
-> not a settled result.
+> Status: 6K@60 over USB-C is confirmed working, but on one of the two ports
+> only; the other is unconfirmed either way. The hotplug findings below come
+> from one session some weeks ago and have not been re-verified since the
+> switch to `xe`.
 
 Chassis: two USB-C ports, both Type-C-subsystem backed (`00:07.0` root port,
 `00:0d.0` Thunderbolt (TB) xHCI + `00:0d.3` DMA1; host router `Gen14`, USB4),
@@ -206,7 +207,7 @@ ports, same cables:
 |---|---|
 | SSD, runtime hotplug | **10 Gbps SuperSpeed (SS)** on the TB xHCI - SS lanes fine |
 | Display, runtime hotplug (both ports) | 480 Mbps USB2 only; mux never flips to DP; no HPD |
-| Display, **connected at power-on** | **DP-3 connected, native 6144×3456@60** over DP-alt |
+| Display, **connected at power-on** | **DP-3 connected, native 6144×3456@60** over DP-alt (confirmed, one port) |
 | TB4 display on a MacBook | 6K works - display side healthy |
 
 **Cold boot works**: HONOR's embedded controller (EC) arms DisplayPort
@@ -240,17 +241,18 @@ a documented feature. Power contracts are sink-autonomous PD messages
 port's split personality: charger ✓, USB2 hub ✓, USB3 ✓ (SSD), USB4/DP
 ✗ at hotplug, DP ✓ at cold boot.
 
-### HDMI path (fallback, and FRL backport verdict)
+### HDMI path: 4K fallback until HDMI 2.1 FRL lands
 
-The display also takes HDMI 2.1. On kernel 7.2.5 that path is Transition-
-Minimized Differential Signaling (TMDS) class: 4K@60, 8 bpc, no 6K (1371 MHz
-pixel clock against a 600 MHz TMDS cap). Intel's "Enable HDMI Fixed Rate Link
-(FRL) for MTL+" 44-patch series (Aug 2026, LWN 1087803) would lift this -
-**but it's moot now**: native 6K over USB-C cold-boot covers the need, the
-series doesn't touch the hotplug/mux gap (EC-side), and a work-in-progress
-44-patch backport buys only a redundant HDMI backup path at real boot risk.
-Verdict: **skip; it arrives free if/when merged upstream.** The HDMI rule
-stays in `monitors.lua` as the plain-display fallback.
+The display also takes HDMI 2.1, but the current path is Transition-Minimized
+Differential Signaling (TMDS) class: 4K@60, 8 bpc, no 6K (1371 MHz pixel clock
+against a 600 MHz TMDS cap). 6K needs Fixed Rate Link (FRL), which the driver
+does not support yet, so HDMI falls back to 4K. Intel-side work is in progress,
+at least for the `xe` driver (reported, not verified on this machine).
+
+Backporting it is not worth it here: it buys only a redundant 6K path at real
+boot risk, and it arrives free if/when merged upstream. Until then USB-C is the
+6K path and HDMI is the plain-display fallback - its rule stays in
+`monitors.lua`.
 
 ### hyprmoncfg: unmanaged (its poll re-application fights the power policy)
 

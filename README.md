@@ -34,7 +34,7 @@ Two weeks of intermittent tuning around real work, not a weekend sprint.
 | HDR10 (high dynamic range) per content, 1600 nits | ✅ fullscreen-only: `mpv-hdr` + auto-flip for tagged apps | [display doc](docs/display.md) |
 | Session restore, gestures, rounded-corner UI | ✅ | `user/hypr/`, `user/omarchy/` |
 | Battery charge limit + "charge to full" button | ✅ enforced at 70–90 %, EC (embedded controller) arms its 3 presets only | [power doc](docs/power.md) |
-| External 6K over USB-C | ⚠️ came up at cold boot when tested; not re-verified since (see display doc) | [display doc](docs/display.md) |
+| External 6K over USB-C | ✅ 6K@60 confirmed on one USB-C port (cold boot); hotplug still dead. HDMI falls back to 4K until HDMI 2.1 FRL lands | [display doc](docs/display.md) |
 
 ## Layout
 
@@ -109,12 +109,12 @@ Things that were tried and did not work, kept because they cost real time:
    Delivery (PD) `Enter Mode` commands this machine can't issue: there is no
    USB Type-C Connector System Software Interface (UCSI) here, no
    `/sys/class/typec`, and the HONOR EC dialect-locks the mux. Cold boot with
-   the display attached worked: the EC arms DisplayPort alternate mode
-   (DP-alt) at POST and Linux inherits the link (native 6144×3456@60). USB3
-   hotplug was unaffected, because SuperSpeed (SS) training is
-   PHY-autonomous. Tested some weeks ago and not re-verified since, including
-   after the switch to `xe` - treat it as a lead, not a conclusion. Attach
-   before power-on; don't hotplug.
+   the display attached does work: 6K@60 is confirmed on one of the two ports,
+   with the EC arming DisplayPort alternate mode (DP-alt) at POST and Linux
+   inheriting the link. The hotplug half was measured in one session and not
+   re-verified since the switch to `xe` - treat that half as a lead. Attach
+   before power-on; don't hotplug. HDMI is not an alternative for 6K: it falls
+   back to 4K until HDMI 2.1 FRL support lands.
 
 ## License
 
