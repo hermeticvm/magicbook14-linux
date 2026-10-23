@@ -33,6 +33,7 @@ Two weeks of intermittent tuning around real work, not a weekend sprint.
 | Display 10-bit over DSC (Display Stream Compression) | ✅ 10 bpc via runtime force, no kernel patch | [display doc](docs/display.md) |
 | HDR10 (high dynamic range) per content, 1600 nits | ✅ fullscreen-only: `mpv-hdr` + auto-flip for tagged apps | [display doc](docs/display.md) |
 | Session restore, gestures, rounded-corner UI | ✅ | `user/hypr/`, `user/omarchy/` |
+| Touchscreen (FocalTech FTSC1000) + phantom-micmute removal | ✅ working, phantom `KEY_MICMUTE` device suppressed via HID-BPF | [touch doc](docs/touch.md) |
 | Battery charge limit + "charge to full" button | ✅ enforced at 70–90 %, EC (embedded controller) arms its 3 presets only | [power doc](docs/power.md) |
 | External 6K over USB-C | ✅ 6K@60 confirmed on one USB-C port (cold boot); hotplug still dead. HDMI falls back to 4K until HDMI 2.1 FRL lands | [display doc](docs/display.md) |
 

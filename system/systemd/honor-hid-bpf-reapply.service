@@ -1,0 +1,14 @@
+[Unit]
+Description=Re-apply the HONOR FTSC1000 phantom-micmute HID-BPF fixup after udev settles
+# The boot-time udev attach races the hid-generic -> hid-multitouch handover;
+# without this unit the fixup is silently lost on boots that lose the race.
+# The service is a no-op when the attach already took. See docs/touch.md.
+After=multi-user.target
+ConditionPathExists=/etc/udev-hid-bpf/honor-ftsc1000-micmute.bpf.o
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/honor-hid-bpf-rebuild.sh reapply
+
+[Install]
+WantedBy=multi-user.target
